@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="shortcut icon" href="/img/favicon.ico" type="image/x-icon">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/style.css">
+    <% if (typeof showLanding !== 'undefined' && showLanding) { %>
+    <style>
+        .hero-section {
+            background: linear-gradient(135deg, #4A00E0, #8E2DE2);
+            color: white;
+            padding: 100px 0;
+            text-align: center;
+        }
+        
+        .features-section {
+            padding: 80px 0;
+            background-color: #f8f9fa;
+        }
+        
+        .feature-card {
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            height: 100%;
+            transition: transform 0.3s ease;
+            background-color: white;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-10px);
+        }
+        
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            color: #6610f2;
+        }
+        
+        .cta-section {
+            padding: 80px 0;
+            background-color: #e9ecef;
+            text-align: center;
+        }
+        
+        .cta-btn {
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 50px;
+        }
+    </style>
+    <% } %>
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <img src="/img/logo.png" alt="FileForge Logo" height="30" class="d-inline-block align-top">
+                FileForge
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/">Home</a>
+                    </li>
+                    <% if(locals.user) { %>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/dashboard">Dashboard</a>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button"
+                                data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-user"></i> <%= user.name %>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                                <li><a class="dropdown-item" href="/profile">Profile</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="/auth/logout">Logout</a></li>
+                            </ul>
+                        </li>
+                    <% } else { %>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/auth/login">Login</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/auth/register">Register</a>
+                        </li>
+                    <% } %>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-3">
+        <% if(locals.success_msg && success_msg !== '') { %>
+            <div class="alert alert-success alert-dismissible fade show">
+                <%= success_msg %>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        <% } %>
+        
+        <% if(locals.error_msg && error_msg !== '') { %>
+            <div class="alert alert-danger alert-dismissible fade show">
+                <%= error_msg %>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        <% } %>
+        
+        <% if(locals.info_msg && info_msg !== '') { %>
+            <div class="alert alert-info alert-dismissible fade show">
+                <%= info_msg %>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        <% } %>
+    </div>
+
+    <% if (typeof showLanding !== 'undefined' && showLanding) { %>
+    <!-- Landing Page Content -->
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-10 mx-auto">
+                    <h1 class="display-4 fw-bold mb-4">Secure File Sharing Made Simple</h1>
+                    <p class="lead mb-5">Share your files easily with anyone, anywhere. FileForge provides secure, fast, and simple file sharing with no complicated setup.</p>
+                    <a href="/share" class="btn btn-light btn-lg cta-btn">
+                        <i class="fas fa-share-alt me-2"></i>Share a File Now
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features-section">
+        <div class="container">
+            <h2 class="text-center mb-5">Why Choose FileForge?</h2>
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <h3>Secure Sharing</h3>
+                        <p>Your files are encrypted and protected. Only those with the link can access your shared files.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-bolt"></i>
+                        </div>
+                        <h3>Lightning Fast</h3>
+                        <p>Upload and share files in seconds. No waiting for lengthy processes or approvals.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-user-circle"></i>
+                        </div>
+                        <h3>User Dashboard</h3>
+                        <p>Keep track of all your shared files in one place with our intuitive dashboard.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section class="bg-white py-5">
+        <div class="container">
+            <h2 class="text-center mb-5">How It Works</h2>
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="d-flex mb-4">
+                        <div class="me-4">
+                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                <span class="fw-bold">1</span>
+                            </div>
+                        </div>
+                        <div>
+                            <h4>Create an Account</h4>
+                            <p>Sign up for free and get access to all FileForge features.</p>
+                        </div>
+                    </div>
+                    <div class="d-flex mb-4">
+                        <div class="me-4">
+                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                <span class="fw-bold">2</span>
+                            </div>
+                        </div>
+                        <div>
+                            <h4>Upload Your Files</h4>
+                            <p>Drag and drop or select files to upload (up to 100MB).</p>
+                        </div>
+                    </div>
+                    <div class="d-flex mb-4">
+                        <div class="me-4">
+                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                <span class="fw-bold">3</span>
+                            </div>
+                        </div>
+                        <div>
+                            <h4>Share Instantly</h4>
+                            <p>Get a link to share or send directly via email.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+        <div class="container">
+            <h2 class="mb-4">Ready to Start Sharing?</h2>
+            <p class="lead mb-5">Join thousands of users who trust FileForge for their file sharing needs.</p>
+            <div class="d-flex justify-content-center gap-3">
+                <a href="/share" class="btn btn-primary btn-lg cta-btn">
+                    <i class="fas fa-share-alt me-2"></i>Share a File
+                </a>
+                <a href="/auth/register" class="btn btn-outline-primary btn-lg cta-btn">
+                    <i class="fas fa-user-plus me-2"></i>Sign Up Free
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-white py-4">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>FileForge</h5>
+                    <p>Secure file sharing made simple.</p>
+                </div>
+                <div class="col-md-3">
+                    <h5>Links</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="/" class="text-white">Home</a></li>
+                        <li><a href="/share" class="text-white">Share a File</a></li>
+                        <li><a href="/auth/login" class="text-white">Login</a></li>
+                        <li><a href="/auth/register" class="text-white">Register</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-3">
+                    <h5>Contact</h5>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-envelope me-2"></i> support@fileforge.com</li>
+                        <li><i class="fas fa-phone me-2"></i> (123) 456-7890</li>
+                    </ul>
+                </div>
+            </div>
+            <hr>
+            <div class="text-center">
+                <p class="mb-0">&copy; <%= new Date().getFullYear() %> FileForge. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+    <% } else { %>
+    <!-- File Sharing Interface -->
+    <img src="/img/logo.png" alt="FileForge logo" class="logo">
+    <section class="upload-container">
+        <form action="">
+            <div class="drop-zone">
+                <div class="icon-container">
+                    <img src="/img/file.png" draggable="false" class="center" alt="File Icon">
+                    <img src="/img/file.png" draggable="false" class="left" alt="File Icon">
+                    <img src="/img/file.png" draggable="false" class="right" alt="File Icon">
+                </div>
+                <input type="file" id="fileInput">
+                <div class="title">Drop your Files here or, <span id="browseBtn">browse</span></div>
+            </div>
+        </form>
+        <div class="progress-container">
+            <div class="bg-progress"></div>
+
+            <div class="inner-container">
+                <div class="status">Uploading...</div>
+                <div class="percent-container">
+                    <span class="percentage" id="progressPercent">0</span>%
+                </div>
+                <div class="progress-bar"></div>
+            </div>
+
+        </div>
+        <div class="sharing-container">
+            <p class="expire">Link expires in 24 hrs</p>
+
+            <div class="input-container">
+                <input type="text" id="fileURL" readonly>
+                <img src="/img/copy.png" id="copyURLBtn" alt="copy to clipboard icon">
+            </div>
+
+            <% if(locals.user) { %>
+                <p class="email-info">This file will be saved to your account</p>
+                <div class="view-dashboard-btn mt-3">
+                    <a href="/dashboard" class="btn btn-primary">Go to Dashboard</a>
+                </div>
+            <% } else { %>
+                <p class="email-info">Or Send via Email</p>
+                <div class="email-container">
+                    <form id="emailForm">
+                        <div class="filed">
+                            <label for="fromEmail">Your email</label>
+                            <input type="email" autocomplete="email" required name="from-email" id="fromEmail">
+                        </div>
+
+                        <div class="filed">
+                            <label for="toEmail">Receiver's email</label>
+                            <input type="email" required autocomplete="receiver" name="to-email" id="toEmail">
+                        </div>
+                        <div class="send-btn-container">
+                            <button type="submit">Send</button>
+                        </div>
+                    </form>
+                </div>
+                <p class="create-account-info mt-4">
+                    <a href="/auth/register" class="create-account-link">Create an account</a> to manage all your files in one place!
+                </p>
+            <% } %>
+        </div>
+    </section>
+    <div class="image-vector"></div>
+    <div class="toast">Sample message</div>
+    <% } %>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <% if (typeof showLanding === 'undefined' || !showLanding) { %>
+    <script src="/index.js"></script>
+    <% } %>
+</body>
+
+</html> 

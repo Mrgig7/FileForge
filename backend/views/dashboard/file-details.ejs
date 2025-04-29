@@ -1,0 +1,219 @@
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h1 class="mb-0">File Details</h1>
+    </div>
+    <div class="col-md-4 text-end">
+        <a href="/dashboard" class="btn btn-outline-primary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card shadow mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">File Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="row align-items-center mb-4">
+                    <div class="col-auto">
+                        <div class="file-icon">
+                            <i class="fas fa-file-alt fa-5x text-primary"></i>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <h4 class="mb-1"><%= file.filename %></h4>
+                        <p class="text-muted mb-0">Uploaded on <%= new Date(file.createdAt).toLocaleString() %></p>
+                    </div>
+                </div>
+
+                <div class="info-list">
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">Size</div>
+                        <div class="col-md-9"><%= formatBytes(file.size) %></div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">UUID</div>
+                        <div class="col-md-9"><%= file.uuid %></div>
+                    </div>
+                    <% if(file.sender) { %>
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">Sender Email</div>
+                        <div class="col-md-9"><%= file.sender %></div>
+                    </div>
+                    <% } %>
+                    <% if(file.receiver) { %>
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">Receiver Email</div>
+                        <div class="col-md-9"><%= file.receiver %></div>
+                    </div>
+                    <% } %>
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">Download Link</div>
+                        <div class="col-md-9">
+                            <div class="input-group">
+                                <input type="text" class="form-control" value="<%= downloadLink %>" id="downloadLink" readonly>
+                                <button class="btn btn-outline-secondary" type="button" id="copyLinkBtn">
+                                    <i class="fas fa-copy"></i> Copy
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card shadow mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-3">
+                    <a href="/files/<%= file.uuid %>" class="btn btn-primary" target="_blank">
+                        <i class="fas fa-eye me-2"></i>View File
+                    </a>
+                    <a href="/files/download/<%= file.uuid %>" class="btn btn-success">
+                        <i class="fas fa-download me-2"></i>Download
+                    </a>
+                    <button class="btn btn-outline-primary" id="shareBtn">
+                        <i class="fas fa-envelope me-2"></i>Share via Email
+                    </button>
+                    <a href="/share" class="btn btn-primary">
+                        <i class="fas fa-share-alt me-2"></i>Share Another File
+                    </a>
+                    <button class="btn btn-danger" id="deleteBtn">
+                        <i class="fas fa-trash me-2"></i>Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow" id="emailShareCard" style="display: none;">
+            <div class="card-header">
+                <h5 class="mb-0">Share via Email</h5>
+            </div>
+            <div class="card-body">
+                <form id="emailForm">
+                    <div class="mb-3">
+                        <label for="fromEmail" class="form-label">Your Email</label>
+                        <input type="email" class="form-control" id="fromEmail" name="from-email" required value="<%= user.email %>">
+                    </div>
+                    <div class="mb-3">
+                        <label for="toEmail" class="form-label">Recipient's Email</label>
+                        <input type="email" class="form-control" id="toEmail" name="to-email" required>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">Send</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete <strong><%= file.filename %></strong>? This action cannot be undone.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDelete">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Copy link functionality
+        document.getElementById('copyLinkBtn').addEventListener('click', function() {
+            const downloadLink = document.getElementById('downloadLink');
+            downloadLink.select();
+            navigator.clipboard.writeText(downloadLink.value)
+                .then(() => {
+                    this.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                    setTimeout(() => {
+                        this.innerHTML = '<i class="fas fa-copy"></i> Copy';
+                    }, 2000);
+                })
+                .catch(err => {
+                    console.error('Failed to copy text: ', err);
+                });
+        });
+
+        // Share via email
+        document.getElementById('shareBtn').addEventListener('click', function() {
+            const emailShareCard = document.getElementById('emailShareCard');
+            emailShareCard.style.display = emailShareCard.style.display === 'none' ? 'block' : 'none';
+        });
+
+        // Email form submission
+        document.getElementById('emailForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = {
+                uuid: '<%= file.uuid %>',
+                emailTo: document.getElementById('toEmail').value,
+                emailFrom: document.getElementById('fromEmail').value
+            };
+
+            fetch('/api/files/send', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Email sent successfully!');
+                    document.getElementById('emailShareCard').style.display = 'none';
+                } else {
+                    alert('Failed to send email: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while sending the email');
+            });
+        });
+
+        // Delete file
+        const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+        
+        document.getElementById('deleteBtn').addEventListener('click', function() {
+            deleteModal.show();
+        });
+
+        document.getElementById('confirmDelete').addEventListener('click', function() {
+            fetch(`/dashboard/file/<%= file._id %>`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = '/dashboard';
+                } else {
+                    alert('Failed to delete file');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while deleting the file');
+            });
+        });
+    });
+</script> 

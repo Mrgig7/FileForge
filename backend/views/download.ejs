@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <!-- <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon"> -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download | FileForge - Secure File Sharing</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        :root {
+            --dark-bg-primary: #1a1c23;
+            --dark-bg-secondary: #252836;
+            --dark-text-primary: #f3f4f7;
+            --dark-text-secondary: #b1b5c3;
+            --dark-accent-primary: #4361ee;
+            --dark-accent-secondary: #3657e4;
+            --dark-border: #36384a;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: var(--dark-bg-primary);
+            color: var(--dark-text-primary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        
+        .logo-container {
+            margin-bottom: 2rem;
+        }
+        
+        .logo {
+            width: 180px;
+            height: auto;
+        }
+        
+        .download-card {
+            background-color: var(--dark-bg-secondary);
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 500px;
+            padding: 2rem;
+            text-align: center;
+            border: 1px solid var(--dark-border);
+        }
+        
+        .download-icon {
+            width: 90px;
+            height: 90px;
+            margin-bottom: 1.5rem;
+            color: var(--dark-accent-primary);
+        }
+        
+        .title {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .subtitle {
+            color: var(--dark-text-secondary);
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .file-info {
+            background-color: rgba(255, 255, 255, 0.05);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .file-name {
+            font-weight: 600;
+            word-break: break-all;
+            margin-bottom: 0.5rem;
+        }
+        
+        .file-size {
+            color: var(--dark-text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .download-button {
+            display: inline-block;
+            background-color: var(--dark-accent-primary);
+            color: white;
+            padding: 0.8rem 2rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+        }
+        
+        .download-button:hover {
+            background-color: var(--dark-accent-secondary);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(67, 97, 238, 0.4);
+        }
+        
+        .error-message {
+            color: #e74c3c;
+            margin-bottom: 1rem;
+        }
+        
+        .expiry {
+            font-size: 0.8rem;
+            color: var(--dark-text-secondary);
+            margin-top: 1.5rem;
+        }
+        
+        .animation {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="logo-container">
+        <h1 style="color: var(--dark-accent-primary);">File<span style="color: white;">Forge</span></h1>
+    </div>
+
+    <div class="download-card">
+        <% if(locals.error){ %>
+            <div class="error-message">
+                <i class="fas fa-exclamation-circle"></i>
+                <h3><%= locals.error %></h3>
+                <p style="margin-top: 1rem;">Please contact the sender for a new link.</p>
+            </div>
+        <% } else { %>
+            <div class="download-icon animation">
+                <i class="fas fa-file-download fa-4x"></i>
+            </div>
+            
+            <h2 class="title">Your file is ready to download</h2>
+            <p class="subtitle">Shared with you securely via FileForge</p>
+            
+            <div class="file-info">
+                <p class="file-name">
+                    <i class="fas fa-file-alt"></i> <%= fileName %>
+                </p>
+                <p class="file-size">
+                    <i class="fas fa-weight-hanging"></i> <%= fileSize %>
+                </p>
+            </div>
+            
+            <a href="<%= downloadLink %>" class="download-button">
+                <i class="fas fa-download"></i> Download Now
+            </a>
+            
+            <p class="expiry">
+                <i class="fas fa-clock"></i> This link expires in 24 hours
+            </p>
+        <% } %>
+    </div>
+</body>
+
+</html>

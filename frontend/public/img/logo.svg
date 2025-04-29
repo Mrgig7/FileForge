@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .file-body { fill: #6366f1; }
+    .file-fold { fill: #4f46e5; }
+    .file-text { fill: #ffffff; }
+  </style>
+  
+  <!-- File shape -->
+  <path class="file-body" d="M40,20 L120,20 L160,60 L160,180 L40,180 Z" />
+  
+  <!-- Folded corner -->
+  <path class="file-fold" d="M120,20 L120,60 L160,60 Z" />
+  
+  <!-- Forge hammer icon -->
+  <rect class="file-text" x="60" y="85" width="80" height="10" rx="2" />
+  <rect class="file-text" x="60" y="105" width="60" height="10" rx="2" />
+  <rect class="file-text" x="60" y="125" width="80" height="10" rx="2" />
+  <rect class="file-text" x="60" y="145" width="40" height="10" rx="2" />
+</svg> 
