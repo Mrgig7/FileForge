@@ -149,6 +149,8 @@ export const AuthProvider = ({ children }) => {
         ? `${API_BASE_URL}/auth/register`
         : `${API_BASE_URL}/api/auth/register`;
       
+      console.log('Sending registration request to:', registerUrl);
+      
       // Make API call to register endpoint with the correct URL
       const response = await fetch(registerUrl, {
         method: 'POST',
@@ -164,6 +166,21 @@ export const AuthProvider = ({ children }) => {
         }),
         credentials: 'include'
       });
+      
+      // Check for non-JSON responses first
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        // For debugging - log information about the non-JSON response
+        const textResponse = await response.text();
+        console.error(`Received non-JSON response: ${textResponse.substring(0, 100)}...`);
+        console.error(`Response URL: ${response.url}`);
+        console.error(`Response status: ${response.status} ${response.statusText}`);
+        
+        return {
+          success: false,
+          error: `Server returned non-JSON response (${response.status}). Please try again later.`
+        };
+      }
       
       // Handle non-OK responses
       if (!response.ok) {
@@ -198,7 +215,7 @@ export const AuthProvider = ({ children }) => {
       console.log('Updating profile with token:', token.substring(0, 20) + '...');
       
       // Get API base URL from environment or fallback
-      const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fileforge-backend.vercel.app/api';
       
       // Check if we have a profile picture file
       const hasProfilePic = profileData.profilePic instanceof File;
@@ -379,13 +396,15 @@ export const AuthProvider = ({ children }) => {
     
     try {
       // Get API base URL from environment or fallback
-      const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fileforge-backend.vercel.app/api';
       
       // Use full path with API_BASE_URL, formatted correctly to avoid duplicate /api/
       const userUrl = API_BASE_URL.endsWith('/api') 
         ? `${API_BASE_URL}/auth/user`
         : `${API_BASE_URL}/api/auth/user`;
         
+      console.log('Fetching user data from:', userUrl);
+      
       const response = await fetch(userUrl, {
         method: 'GET',
         headers: {
@@ -395,6 +414,15 @@ export const AuthProvider = ({ children }) => {
         },
         credentials: 'include'
       });
+      
+      // Check for non-JSON responses first
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error(`Received non-JSON response when fetching user data: Status ${response.status}`);
+        const textResponse = await response.text();
+        console.error(`Response text: ${textResponse.substring(0, 100)}...`);
+        throw new Error('Server returned non-JSON response');
+      }
       
       if (!response.ok) {
         throw new Error('Failed to fetch user data');
