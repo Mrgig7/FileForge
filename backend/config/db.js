@@ -10,10 +10,6 @@ function connectDB() {
     console.log("MONGO_CONNECTION_URL exists:", !!process.env.MONGO_CONNECTION_URL);
     console.log("MONGO_CONNECTION_URL type:", typeof process.env.MONGO_CONNECTION_URL);
     
-    // Define a fallback MongoDB connection string for production
-    // This is a temporary solution until environment variables are properly set in Vercel
-    const FALLBACK_MONGO_URL = "mongodb+srv://nitesh_01:6UZsptd3070RWHHw@filesharingmanager.w6zlzbj.mongodb.net/?retryWrites=true&w=majority&appName=FileSharingManager";
-    
     // Check if the environment variable exists and is valid
     let connectionURL;
     
@@ -27,13 +23,11 @@ function connectDB() {
         } else {
             console.log("WARNING: Environment variable exists but has invalid format");
             console.log("Value starts with:", urlValue.substring(0, 20) + "...");
-            connectionURL = FALLBACK_MONGO_URL;
-            console.log("Using fallback MongoDB URL");
+            throw new Error("Invalid MongoDB connection URL format. It should start with mongodb:// or mongodb+srv://");
         }
     } else {
         console.log("Environment variable MONGO_CONNECTION_URL is undefined or empty");
-        connectionURL = FALLBACK_MONGO_URL;
-        console.log("Using fallback MongoDB URL");
+        throw new Error("MONGO_CONNECTION_URL environment variable is not defined");
     }
     
     // Database connection - with enhanced error handling

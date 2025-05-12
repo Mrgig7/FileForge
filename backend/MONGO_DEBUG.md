@@ -15,33 +15,20 @@ This error occurs in two places:
 
 We've made the following changes to fix this issue:
 
-1. **In `server.js`:** Added a fallback MongoDB URL for the session store:
+1. **Removed hardcoded fallback URLs**: We removed all hardcoded MongoDB connection strings from the codebase to rely only on environment variables:
    ```javascript
-   store: MongoStore.create({
-       mongoUrl: process.env.MONGO_CONNECTION_URL || "mongodb+srv://nitesh_01:6UZsptd3070RWHHw@filesharingmanager.w6zlzbj.mongodb.net/?retryWrites=true&w=majority&appName=FileSharingManager",
-       collectionName: 'sessions'
-   }),
+   // In db.js
+   if (!process.env.MONGO_CONNECTION_URL) {
+     throw new Error("MONGO_CONNECTION_URL environment variable is not defined");
+   }
    ```
 
-2. **In `config/db.js`:** Enhanced error handling and validation of the MongoDB URL:
+2. **In `server.js`:** Using only environment variables for the session store:
    ```javascript
-   // Check if the environment variable exists and is valid
-   let connectionURL;
-   
-   if (process.env.MONGO_CONNECTION_URL) {
-       const urlValue = process.env.MONGO_CONNECTION_URL.trim();
-       // Check if the URL starts with mongodb:// or mongodb+srv://
-       if (urlValue.startsWith('mongodb://') || urlValue.startsWith('mongodb+srv://')) {
-           connectionURL = urlValue;
-           console.log("Using environment variable for MongoDB connection");
-       } else {
-           console.log("WARNING: Environment variable exists but has invalid format");
-           connectionURL = FALLBACK_MONGO_URL;
-           console.log("Using fallback MongoDB URL");
-       }
-   } else {
-       connectionURL = FALLBACK_MONGO_URL;
-   }
+   store: MongoStore.create({
+       mongoUrl: process.env.MONGO_CONNECTION_URL,
+       collectionName: 'sessions'
+   }),
    ```
 
 3. **Removed Environment Variables from vercel.json:**
@@ -77,7 +64,7 @@ Common issues with environment variables in Vercel that might cause this problem
    - Do not use `${VARIABLE_NAME}` syntax in vercel.json
    - Set environment variables directly in the Vercel dashboard instead
 
-## How to Fix in Vercel
+## How to Set Environment Variables in Vercel
 
 1. **Set Environment Variables in Vercel Dashboard:**
    - Go to your Vercel project dashboard
@@ -113,6 +100,25 @@ async function testConnection() {
 testConnection();
 ```
 
+## Required Environment Variables
+
+Make sure all these environment variables are set in your Vercel project:
+
+```
+MONGO_CONNECTION_URL=mongodb+srv://username:password@cluster.mongodb.net/?retryWrites=true&w=majority
+ALLOWED_CLIENTS=https://your-frontend-url.vercel.app
+APP_BASE_URL=https://your-backend-url.vercel.app
+SMTP_HOST=smtp.example.net
+SMTP_PORT=587
+MAIL_USER=your_email@example.net
+MAIL_PASS=your_password
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+CLOUDINARY_URL=cloudinary://your_api_key:your_api_secret@your_cloud_name
+JWT_SECRET=your_jwt_secret_key
+```
+
 ## Next Steps
 
 After making these changes:
@@ -121,7 +127,7 @@ After making these changes:
 2. **Check the logs** for any relevant error messages
 3. **Monitor the database connection** to ensure it's stable
 
-If you've properly set the environment variable in Vercel, you should see the following in your logs:
+If you've properly set the environment variables in Vercel, you should see the following in your logs:
 ```
 Using environment variable for MongoDB connection
 URL starts with: mongodb+srv://user...
@@ -129,17 +135,10 @@ Attempting to connect to MongoDB...
 MongoDB database connection established successfully 🥳🥳🥳🥳
 ```
 
-If you see:
-```
-Environment variable MONGO_CONNECTION_URL is undefined or empty
-Using fallback MongoDB URL
-```
-
-This indicates that Vercel is not properly passing the environment variable to your application.
-
 ## Security Reminder
 
 Remember:
-- The fallback MongoDB URL in your code is a temporary measure
-- For security, set proper environment variables in Vercel and remove hardcoded credentials
+- Never include sensitive credentials in your code
+- Use environment variables for all sensitive information
+- Regularly rotate your passwords and API keys
 - Consider using Vercel's integration with MongoDB Atlas for easier configuration 

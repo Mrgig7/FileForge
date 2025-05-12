@@ -93,7 +93,7 @@ app.use(session({
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({
-        mongoUrl: process.env.MONGO_CONNECTION_URL || "mongodb+srv://nitesh_01:6UZsptd3070RWHHw@filesharingmanager.w6zlzbj.mongodb.net/?retryWrites=true&w=majority&appName=FileSharingManager",
+        mongoUrl: process.env.MONGO_CONNECTION_URL,
         collectionName: 'sessions'
     }),
     cookie: {
