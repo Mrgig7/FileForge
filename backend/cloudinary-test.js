@@ -1,11 +1,6 @@
 // Test script for Cloudinary integration
 require('dotenv').config();
 
-// Set Cloudinary environment variables if not present in .env
-process.env.CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || 'drkqoaf08';
-process.env.CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY || '487735558362993';
-process.env.CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET || 'ETphSwynAprVeWW9vGNrTMXk9Yw';
-
 const cloudinary = require('cloudinary').v2;
 const fs = require('fs');
 const path = require('path');

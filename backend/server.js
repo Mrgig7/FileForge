@@ -11,16 +11,9 @@ const jwt = require('jsonwebtoken');
 const fileUpload = require('express-fileupload');
 require('dotenv').config();
 
-// Set Cloudinary environment variables if not set in .env
-process.env.CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || 'drkqoaf08';
-process.env.CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY || '487735558362993';
-process.env.CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET || 'ETphSwynAprVeWW9vGNrTMXk9Yw';
-process.env.CLOUDINARY_URL = process.env.CLOUDINARY_URL || 'cloudinary://487735558362993:ETphSwynAprVeWW9vGNrTMXk9Yw@drkqoaf08';
-
 // CORS - Move this up to be one of the first middleware
 const corsOptions = {
     origin: function(origin, callback) {
-        // Remove trailing slash from origins if present
         const allowedOrigins = [
             'http://127.0.0.1:5173', 
             'http://localhost:5173', 
