@@ -26,13 +26,13 @@
   ],
   "env": {
     "NODE_ENV": "production",
-    "MONGO_CONNECTION_URL": "@mongo_connection_url",
-    "JWT_SECRET": "@jwt_secret",
-    "APP_BASE_URL": "@app_base_url",
-    "ALLOWED_CLIENTS": "@allowed_clients",
-    "CLOUDINARY_CLOUD_NAME": "@cloudinary_cloud_name",
-    "CLOUDINARY_API_KEY": "@cloudinary_api_key",
-    "CLOUDINARY_API_SECRET": "@cloudinary_api_secret",
-    "CLOUDINARY_URL": "@cloudinary_url"
+    "MONGO_CONNECTION_URL": "${MONGO_CONNECTION_URL}",
+    "JWT_SECRET": "${JWT_SECRET}",
+    "APP_BASE_URL": "${APP_BASE_URL}",
+    "ALLOWED_CLIENTS": "${ALLOWED_CLIENTS}",
+    "CLOUDINARY_CLOUD_NAME": "${CLOUDINARY_CLOUD_NAME}",
+    "CLOUDINARY_API_KEY": "${CLOUDINARY_API_KEY}",
+    "CLOUDINARY_API_SECRET": "${CLOUDINARY_API_SECRET}",
+    "CLOUDINARY_URL": "${CLOUDINARY_URL}"
   }
 } 
