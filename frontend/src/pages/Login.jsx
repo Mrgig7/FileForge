@@ -24,7 +24,12 @@ const Login = () => {
   useEffect(() => {
     async function testApiConnection() {
       try {
-        const testUrl = `${API_BASE_URL}/api/test`;
+        // Fix: Ensure no duplicate '/api/' in the path
+        // If API_BASE_URL already ends with /api, just add /test, otherwise use /api/test
+        const testUrl = API_BASE_URL.endsWith('/api') 
+          ? `${API_BASE_URL}/test`
+          : `${API_BASE_URL}/api/test`;
+        
         console.log(`Testing API connection at: ${testUrl}`);
         const response = await fetch(testUrl, {
           method: 'GET',
