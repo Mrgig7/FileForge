@@ -141,8 +141,8 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log('Registering user:', email);
       
-      // Get API base URL from environment or fallback
-      const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+      // Get API base URL from environment or fallback to the production URL
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fileforge-backend.vercel.app/api';
       
       // Use full path with API_BASE_URL, formatted correctly to avoid duplicate /api/
       const registerUrl = API_BASE_URL.endsWith('/api') 

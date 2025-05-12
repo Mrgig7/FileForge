@@ -3,8 +3,8 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import Header from '../components/Header';
 
-// API base URL from environment or fallback
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+// API base URL from environment or fallback to production URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fileforge-backend.vercel.app/api';
 
 const Login = () => {
   const [email, setEmail] = useState('');
