@@ -221,6 +221,9 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/profile', require('./routes/profile'));
 
+// Add web routes for non-API access
+app.use('/auth', require('./routes/auth'));
+
 // Add a debug route to test API accessibility
 app.get('/api/test', (req, res) => {
     res.setHeader('Content-Type', 'application/json');

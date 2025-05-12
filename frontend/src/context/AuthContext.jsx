@@ -146,8 +146,8 @@ export const AuthProvider = ({ children }) => {
       
       // Use full path with API_BASE_URL, formatted correctly to avoid duplicate /api/
       const registerUrl = API_BASE_URL.endsWith('/api') 
-        ? `${API_BASE_URL}/auth/register`
-        : `${API_BASE_URL}/api/auth/register`;
+        ? `${API_BASE_URL}/auth/api/register`
+        : `${API_BASE_URL}/api/auth/api/register`;
       
       console.log('Sending registration request to:', registerUrl);
       
