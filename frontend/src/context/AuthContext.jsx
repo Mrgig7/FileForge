@@ -144,10 +144,8 @@ export const AuthProvider = ({ children }) => {
       // Get API base URL from environment or fallback to the production URL
       const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fileforge-backend.vercel.app/api';
       
-      // Use full path with API_BASE_URL, formatted correctly to avoid duplicate /api/
-      const registerUrl = API_BASE_URL.endsWith('/api') 
-        ? `${API_BASE_URL}/auth/api/register`
-        : `${API_BASE_URL}/api/auth/api/register`;
+      // Fix URL construction to remove duplication of "api" in the path
+      const registerUrl = `${API_BASE_URL}/auth/register`;
       
       console.log('Sending registration request to:', registerUrl);
       
