@@ -26,7 +26,7 @@
   ],
   "env": {
     "NODE_ENV": "production",
-    "MONGO_CONNECTION_URL": "${MONGO_CONNECTION_URL}",
+    "MONGO_CONNECTION_URL": "mongodb+srv://nitesh_01:6UZsptd3070RWHHw@filesharingmanager.w6zlzbj.mongodb.net/?retryWrites=true&w=majority&appName=FileSharingManager",
     "JWT_SECRET": "${JWT_SECRET}",
     "APP_BASE_URL": "${APP_BASE_URL}",
     "ALLOWED_CLIENTS": "${ALLOWED_CLIENTS}",
