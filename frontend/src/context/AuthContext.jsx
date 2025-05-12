@@ -141,8 +141,16 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log('Registering user:', email);
       
-      // Make API call to register endpoint - Fix the URL to use the proxied path
-      const response = await fetch('/api/auth/register', {
+      // Get API base URL from environment or fallback
+      const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+      
+      // Use full path with API_BASE_URL, formatted correctly to avoid duplicate /api/
+      const registerUrl = API_BASE_URL.endsWith('/api') 
+        ? `${API_BASE_URL}/auth/register`
+        : `${API_BASE_URL}/api/auth/register`;
+      
+      // Make API call to register endpoint with the correct URL
+      const response = await fetch(registerUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -189,9 +197,17 @@ export const AuthProvider = ({ children }) => {
       
       console.log('Updating profile with token:', token.substring(0, 20) + '...');
       
+      // Get API base URL from environment or fallback
+      const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+      
       // Check if we have a profile picture file
       const hasProfilePic = profileData.profilePic instanceof File;
-      let apiEndpoint = '/api/auth/user';
+      
+      // Use full path with API_BASE_URL, formatted correctly to avoid duplicate /api/
+      const apiEndpoint = API_BASE_URL.endsWith('/api') 
+        ? `${API_BASE_URL}/auth/user`
+        : `${API_BASE_URL}/api/auth/user`;
+        
       let requestOptions = {};
       
       if (hasProfilePic) {
@@ -362,7 +378,15 @@ export const AuthProvider = ({ children }) => {
     if (!authToken) return null;
     
     try {
-      const response = await fetch('/api/auth/user', {
+      // Get API base URL from environment or fallback
+      const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+      
+      // Use full path with API_BASE_URL, formatted correctly to avoid duplicate /api/
+      const userUrl = API_BASE_URL.endsWith('/api') 
+        ? `${API_BASE_URL}/auth/user`
+        : `${API_BASE_URL}/api/auth/user`;
+        
+      const response = await fetch(userUrl, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${authToken}`,

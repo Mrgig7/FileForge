@@ -67,8 +67,11 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      // Try the API test login endpoint first
-      const loginUrl = '/api/test-login';
+      // Construct the login URL using API_BASE_URL
+      const loginUrl = API_BASE_URL.endsWith('/api') 
+        ? `${API_BASE_URL}/test-login`
+        : `${API_BASE_URL}/api/test-login`;
+        
       console.log(`Sending login request to test endpoint: ${loginUrl}`);
       
       const response = await fetch(loginUrl, {
