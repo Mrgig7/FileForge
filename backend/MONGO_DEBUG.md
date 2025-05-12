@@ -44,6 +44,20 @@ We've made the following changes to fix this issue:
    }
    ```
 
+3. **Removed Environment Variables from vercel.json:**
+   We identified that the root cause was Vercel not properly processing environment variables in the `vercel.json` file. The `${VARIABLE_NAME}` syntax was being passed literally to the application instead of being substituted with actual values.
+   
+   ```diff
+   - "env": {
+   -   "NODE_ENV": "production",
+   -   "MONGO_CONNECTION_URL": "${MONGO_CONNECTION_URL}",
+   -   "JWT_SECRET": "${JWT_SECRET}",
+   -   ...
+   - }
+   ```
+   
+   Vercel doesn't support variable interpolation in the `vercel.json` file. Instead, environment variables should be set directly in the Vercel dashboard.
+
 ## Environment Variable Issues in Vercel
 
 Common issues with environment variables in Vercel that might cause this problem:
@@ -59,13 +73,18 @@ Common issues with environment variables in Vercel that might cause this problem
 3. **Variable Name Mismatch:**
    - Ensure the variable is named exactly `MONGO_CONNECTION_URL` (case-sensitive)
 
+4. **Vercel.json Environment Variables:**
+   - Do not use `${VARIABLE_NAME}` syntax in vercel.json
+   - Set environment variables directly in the Vercel dashboard instead
+
 ## How to Fix in Vercel
 
-1. **Reset the Environment Variable:**
+1. **Set Environment Variables in Vercel Dashboard:**
    - Go to your Vercel project dashboard
    - Navigate to Settings > Environment Variables
-   - Delete the existing `MONGO_CONNECTION_URL` variable
-   - Add it again with a fresh copy of your connection string
+   - Add each environment variable directly with the proper values
+   - Do not include quotes around the values
+   - Make sure the MongoDB connection string starts with `mongodb://` or `mongodb+srv://`
 
 2. **Formatting Your Connection String:**
    - Ensure it starts with `mongodb://` or `mongodb+srv://`
