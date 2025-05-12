@@ -19,7 +19,8 @@ const corsOptions = {
             'http://localhost:5173', 
             'http://localhost:3000',
             'https://fileforge-react.vercel.app',
-            'https://file-forge-react.vercel.app'
+            'https://file-forge-react.vercel.app',
+            'https://fileforge-backend.vercel.app'
         ];
         
         // Add the origin from env file without trailing slash
