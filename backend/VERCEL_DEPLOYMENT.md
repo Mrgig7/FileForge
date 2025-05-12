@@ -76,6 +76,45 @@ Your backend currently has CORS configured to allow requests from specific origi
 
 Make sure your frontend URL is included in the `ALLOWED_CLIENTS` environment variable in Vercel.
 
+## Fixing MongoDB Connection Error
+
+You're currently seeing the following error:
+```
+MongoParseError: Invalid scheme, expected connection string to start with "mongodb://" or "mongodb+srv://"
+```
+
+This happens because the MongoDB connection string isn't properly set in Vercel. To fix this:
+
+1. **Ensure the MONGO_CONNECTION_URL environment variable is set correctly in Vercel:**
+   - The value should start with `mongodb+srv://` or `mongodb://`
+   - Example format: `mongodb+srv://username:password@cluster.mongodb.net/database?retryWrites=true&w=majority`
+   
+2. **Common issues and solutions:**
+   - Make sure there are no extra quotes (") or spaces in your environment variable
+   - Vercel's environment variable UI can sometimes add extra characters if you copy/paste - check carefully
+   - Ensure the variable name is exactly `MONGO_CONNECTION_URL` (case-sensitive)
+   - If your MongoDB password contains special characters, ensure they're properly URL-encoded
+
+3. **Debugging steps:**
+   - Set a temporary environment variable with a simple value to test (e.g., `TEST_VAR=hello`)
+   - Add a console.log in your code to output both variables: 
+     ```js
+     console.log("Test var:", process.env.TEST_VAR);
+     console.log("MongoDB URL starts with:", process.env.MONGO_CONNECTION_URL ? process.env.MONGO_CONNECTION_URL.substring(0, 20) : "undefined");
+     ```
+   - Add this code to your `db.js` file to verify what's happening:
+     ```js
+     console.log("MongoDB URL is set:", !!process.env.MONGO_CONNECTION_URL);
+     console.log("MongoDB URL type:", typeof process.env.MONGO_CONNECTION_URL);
+     console.log("MongoDB URL starts with:", process.env.MONGO_CONNECTION_URL ? process.env.MONGO_CONNECTION_URL.substring(0, 20) : "undefined");
+     ```
+
+4. **Alternative solution if all else fails:**
+   - Temporarily add a fallback URL in your code as a safety measure while debugging:
+     ```js
+     mongoose.connect(process.env.MONGO_CONNECTION_URL || "mongodb+srv://username:password@cluster.mongodb.net/database?retryWrites=true&w=majority");
+     ```
+
 ## Important Security Reminders
 
 1. **Never commit sensitive credentials to your repository**
