@@ -132,8 +132,8 @@ router.get('/logout', ensureAuthenticated, (req, res, next) => {
 // @route   POST /api/auth/register
 // @desc    Register a new user
 // @access  Public
-// IMPORTANT: This route will be properly mounted at /api/auth/register in server.js
-router.post('/api/register', async (req, res) => {
+// IMPORTANT: This route is mounted at /api/auth in server.js
+router.post('/register', async (req, res) => {
     try {
         // Set the content type explicitly to ensure JSON response
         res.setHeader('Content-Type', 'application/json');
