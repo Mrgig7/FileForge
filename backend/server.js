@@ -165,7 +165,6 @@ app.post('/api/test-login', (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     // Remove any trailing slash from ALLOWED_CLIENTS to fix CORS issues
     const allowedOrigin = (process.env.ALLOWED_CLIENTS || 'http://localhost:5173').replace(/\/$/, '');
-    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
     
