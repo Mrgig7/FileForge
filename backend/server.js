@@ -15,15 +15,15 @@ require('dotenv').config();
 const corsOptions = {
     origin: function(origin, callback) {
         const allowedOrigins = [
-            'http://127.0.0.1:5173', 
-            'http://localhost:5173', 
+            'http://127.0.0.1:5173',
+            'http://localhost:5173',
             'http://localhost:3000',
             'https://fileforge-react.vercel.app',
             'https://file-forge-react.vercel.app',
             'https://fileforge-backend.vercel.app',
             'https://fileforge-indol.vercel.app'
         ];
-        
+
         // Add the origin from env file without trailing slash
         if (process.env.ALLOWED_CLIENTS) {
             const envOrigins = process.env.ALLOWED_CLIENTS.split(',');
@@ -31,10 +31,10 @@ const corsOptions = {
                 allowedOrigins.push(origin.trim().replace(/\/$/, ''));
             });
         }
-        
+
         // For null origin (like Postman)
         if (!origin) return callback(null, true);
-        
+
         if (allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
@@ -79,13 +79,13 @@ app.use('/api', (req, res, next) => {
 app.use('/api', (req, res, next) => {
     // Save original res.json function
     const originalJson = res.json;
-    
+
     // Override json method to always set proper content-type
     res.json = function(body) {
         res.setHeader('Content-Type', 'application/json');
         return originalJson.call(this, body);
     };
-    
+
     next();
 });
 
@@ -117,13 +117,13 @@ app.use((req, res, next) => {
     const errorMsg = req.flash('error_msg');
     const infoMsg = req.flash('info_msg');
     const error = req.flash('error');
-    
+
     // Only set locals for non-empty messages
     if (successMsg.length > 0) res.locals.success_msg = successMsg;
     if (errorMsg.length > 0) res.locals.error_msg = errorMsg;
     if (infoMsg.length > 0) res.locals.info_msg = infoMsg;
     if (error.length > 0) res.locals.error = error;
-    
+
     res.locals.user = req.user || null;
     next();
 });
@@ -150,45 +150,47 @@ connectDB();
 app.post('/api/test-auth', (req, res) => {
     console.log('Test auth route hit:', req.body);
     res.setHeader('Content-Type', 'application/json');
-    res.status(200).json({ 
-        success: true, 
+    res.status(200).json({
+        success: true,
         message: 'Test authentication successful',
         receivedData: req.body
     });
 });
 
-// Add a direct login test route
+// Test login route - Disabled in production
+// Uncomment for development/testing purposes only
+/*
 app.post('/api/test-login', (req, res) => {
     console.log('Test login route hit:', req.body);
-    
+
     // Set proper CORS and content type headers
     res.setHeader('Content-Type', 'application/json');
     // Remove any trailing slash from ALLOWED_CLIENTS to fix CORS issues
     const allowedOrigin = (process.env.ALLOWED_CLIENTS || 'http://localhost:5173').replace(/\/$/, '');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-    
+
     // Simple mock login response
     const { email, password } = req.body;
-    
+
     console.log('Processing test login for:', email);
-    
+
     if (email && password) {
         try {
             // Create a mock user ID that's a valid ObjectId (24 hex chars)
             // Instead of using base64 encoding which causes MongoDB validation issues
             const mockUserId = '123456789012345678901234';
-            
+
             // Create a more realistic token with proper user data
             const token = jwt.sign(
                 { id: mockUserId, name: email.split('@')[0], email: email },
                 process.env.JWT_SECRET || 'fileforge_jwt_secret',
                 { expiresIn: '1d' }
             );
-            
+
             console.log('Generated mock token for test user:', email);
             console.log('Token preview:', token.substring(0, 20) + '...');
-            
+
             // Return the token and user data
             return res.status(200).json({
                 success: true,
@@ -214,6 +216,7 @@ app.post('/api/test-login', (req, res) => {
         });
     }
 });
+*/
 
 app.use('/api/files', require('./routes/files'));
 app.use('/api/auth', require('./routes/auth'));
@@ -226,12 +229,12 @@ app.use('/auth', require('./routes/auth'));
 // Add a debug route to test API accessibility
 app.get('/api/test', (req, res) => {
     res.setHeader('Content-Type', 'application/json');
-    res.json({ 
-        success: true, 
+    res.json({
+        success: true,
         message: 'API is accessible',
         origin: req.headers.origin || 'No origin header',
-        allowedOrigins: corsOptions.origin instanceof Function ? 
-            ['Using function-based origin validation'] : 
+        allowedOrigins: corsOptions.origin instanceof Function ?
+            ['Using function-based origin validation'] :
             corsOptions.origin
     });
 });
@@ -239,10 +242,10 @@ app.get('/api/test', (req, res) => {
 // Add a catch-all route for debugging API access issues
 app.use('/api/*', (req, res) => {
     res.setHeader('Content-Type', 'application/json');
-    res.status(404).json({ 
-        error: 'API endpoint not found', 
+    res.status(404).json({
+        error: 'API endpoint not found',
         requestedUrl: req.originalUrl,
-        method: req.method 
+        method: req.method
     });
 });
 
@@ -269,13 +272,13 @@ app.get('/files/:uuid', async (req, res) => {
     try {
         const uuid = req.params.uuid;
         const File = require('./models/file');
-        
+
         console.log(`Processing file page request for UUID: ${uuid}`);
         const file = await File.findOne({ uuid });
-        
+
         if (!file) {
             console.log(`File not found for UUID: ${uuid}`);
-            return res.status(404).render('download', { 
+            return res.status(404).render('download', {
                 error: 'File not found or link has expired.',
                 uuid: null,
                 fileName: null,
@@ -283,12 +286,12 @@ app.get('/files/:uuid', async (req, res) => {
                 downloadLink: null
             });
         }
-        
+
         // Check if file exists on filesystem
         const fs = require('fs');
         if (!fs.existsSync(file.path)) {
             console.log(`File not found on disk: ${file.path}`);
-            return res.status(404).render('download', { 
+            return res.status(404).render('download', {
                 error: 'File not found on server.',
                 uuid: null,
                 fileName: null,
@@ -306,7 +309,7 @@ app.get('/files/:uuid', async (req, res) => {
             const i = Math.floor(Math.log(bytes) / Math.log(k));
             return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
         };
-        
+
         console.log(`Rendering download page for: ${file.originalName || file.filename}`);
         return res.render('download', {
             error: null,
@@ -317,7 +320,7 @@ app.get('/files/:uuid', async (req, res) => {
         });
     } catch (error) {
         console.error('Download page error:', error);
-        return res.status(500).render('download', { 
+        return res.status(500).render('download', {
             error: 'Something went wrong.',
             uuid: null,
             fileName: null,
@@ -332,22 +335,22 @@ app.get('/files/download/:uuid', async (req, res) => {
     try {
         const uuid = req.params.uuid;
         const File = require('./models/file');
-        
+
         console.log(`Processing direct file download for UUID: ${uuid}`);
         const file = await File.findOne({ uuid });
-        
+
         if (!file) {
             console.log(`File not found for download UUID: ${uuid}`);
             return res.status(404).send('File not found');
         }
-        
+
         // Check if file exists on filesystem
         const fs = require('fs');
         if (!fs.existsSync(file.path)) {
             console.log(`File not found on disk for download: ${file.path}`);
             return res.status(404).send('File not found on disk');
         }
-        
+
         console.log(`Serving file download: ${file.originalName || file.filename}`);
         return res.download(file.path, file.originalName || file.filename);
     } catch (error) {
@@ -361,7 +364,7 @@ app.get('/files/download/:uuid', async (req, res) => {
 if (process.env.NODE_ENV === 'production') {
     // Serve static files from React build folder
     app.use(express.static(path.join(__dirname, '../frontend/dist')));
-    
+
     // For any route that doesn't match the API routes, serve the React app
     app.get('*', (req, res) => {
         res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));

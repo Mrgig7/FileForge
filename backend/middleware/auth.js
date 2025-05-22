@@ -23,37 +23,38 @@ exports.ensureGuest = (req, res, next) => {
 exports.ensureApiAuth = (req, res, next) => {
     // Set headers for better CORS handling
     res.setHeader('Content-Type', 'application/json');
-    
+
     // Check for session authentication first
     if (req.isAuthenticated()) {
         console.log('User authenticated via session');
         return next();
     }
-    
+
     // Then check for JWT token
     const authHeader = req.header('Authorization');
-    
+
     if (!authHeader) {
         console.log('Auth failed: No Authorization header');
         return res.status(401).json({ error: 'No authorization header, authentication required' });
     }
-    
+
     // Check if token format is correct
     if (!authHeader.startsWith('Bearer ')) {
         console.log('Auth failed: Invalid Authorization format');
         return res.status(401).json({ error: 'Invalid token format. Authorization header must start with "Bearer "' });
     }
-    
+
     try {
         // Extract token (remove 'Bearer ' prefix)
         const token = authHeader.split(' ')[1];
-        
+
         if (!token || token === 'undefined' || token === 'null') {
             console.log('Auth failed: Empty or invalid token');
             return res.status(401).json({ error: 'Invalid token provided' });
         }
-        
-        // Special case for test tokens (non-JWT format)
+
+        // Special case for test tokens - Disabled in production
+        /*
         if (token === 'test-token-123456') {
             console.log('Using test token authentication');
             // Create a mock user for test token
@@ -64,14 +65,16 @@ exports.ensureApiAuth = (req, res, next) => {
             };
             return next();
         }
-        
+        */
+
         console.log('Verifying token...');
-        
+
         // Verify token
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fileforge_jwt_secret');
         console.log('Token verified for user ID:', decoded.id);
-        
-        // For test login tokens, skip the database lookup and create a mock user
+
+        // Test account handling - Disabled in production
+        /*
         if (decoded.email && decoded.email.endsWith('@example.com')) {
             console.log('Using mock user from token for test account:', decoded.email);
             req.user = {
@@ -81,7 +84,8 @@ exports.ensureApiAuth = (req, res, next) => {
             };
             return next();
         }
-        
+        */
+
         // Find the user by ID - only try to use ObjectId if it's a valid format
         try {
             // First try to find by _id
@@ -92,7 +96,7 @@ exports.ensureApiAuth = (req, res, next) => {
                         req.user = user;
                         return next();
                     }
-                    
+
                     // If not found by ID, try to find by email
                     if (decoded.email) {
                         User.findOne({ email: decoded.email })
@@ -117,7 +121,7 @@ exports.ensureApiAuth = (req, res, next) => {
                 })
                 .catch(err => {
                     console.error('Error finding user by ID:', err);
-                    
+
                     // If ID lookup fails, try by email as fallback
                     if (decoded.email) {
                         User.findOne({ email: decoded.email })
@@ -145,7 +149,7 @@ exports.ensureApiAuth = (req, res, next) => {
         }
     } catch (err) {
         console.error('Token verification error:', err);
-        
+
         // Provide better error messages based on the type of error
         if (err.name === 'JsonWebTokenError') {
             return res.status(401).json({ error: 'Invalid token' });
@@ -155,4 +159,4 @@ exports.ensureApiAuth = (req, res, next) => {
             res.status(401).json({ error: 'Authentication failed' });
         }
     }
-}; 
+};

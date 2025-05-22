@@ -11,11 +11,11 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const { login, isAuthenticated } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   // Get the return URL from query params or default to dashboard
   const searchParams = new URLSearchParams(location.search);
   const returnUrl = searchParams.get('returnTo') || '/';
@@ -26,10 +26,10 @@ const Login = () => {
       try {
         // Fix: Ensure no duplicate '/api/' in the path
         // If API_BASE_URL already ends with /api, just add /test, otherwise use /api/test
-        const testUrl = API_BASE_URL.endsWith('/api') 
+        const testUrl = API_BASE_URL.endsWith('/api')
           ? `${API_BASE_URL}/test`
           : `${API_BASE_URL}/api/test`;
-        
+
         console.log(`Testing API connection at: ${testUrl}`);
         const response = await fetch(testUrl, {
           method: 'GET',
@@ -37,7 +37,7 @@ const Login = () => {
             'Accept': 'application/json'
           }
         });
-        
+
         console.log(`API test response status: ${response.status}`);
         if (response.ok) {
           const data = await response.json();
@@ -49,7 +49,7 @@ const Login = () => {
         console.error('API test error:', error);
       }
     }
-    
+
     testApiConnection();
   }, []);
 
@@ -62,18 +62,18 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     setError('');
     setIsLoading(true);
-    
+
     try {
       // Construct the login URL using API_BASE_URL
-      const loginUrl = API_BASE_URL.endsWith('/api') 
-        ? `${API_BASE_URL}/test-login`
-        : `${API_BASE_URL}/api/test-login`;
-        
-      console.log(`Sending login request to test endpoint: ${loginUrl}`);
-      
+      const loginUrl = API_BASE_URL.endsWith('/api')
+        ? `${API_BASE_URL}/auth/login`
+        : `${API_BASE_URL}/api/auth/login`;
+
+      console.log(`Sending login request to: ${loginUrl}`);
+
       const response = await fetch(loginUrl, {
         method: 'POST',
         headers: {
@@ -83,30 +83,30 @@ const Login = () => {
         body: JSON.stringify({ email, password }),
         credentials: 'include'
       });
-      
+
       console.log(`Login response status: ${response.status}`);
       console.log(`Response headers:`, Object.fromEntries([...response.headers]));
-      
+
       // Check for non-JSON responses first
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
         // For debugging - log the text response to see what was actually returned
         const textResponse = await response.text();
         console.error(`Received non-JSON response: ${textResponse.substring(0, 100)}...`);
-        
+
         // Log the full response for debugging
         console.error(`Full response URL: ${response.url}`);
         console.error(`Full response status: ${response.status} ${response.statusText}`);
         console.error(`Full response type: ${response.type}`);
-        
+
         throw new Error(`Server returned non-JSON response: ${contentType || 'unknown content type'}`);
       }
-      
+
       if (!response.ok) {
         const data = await response.json().catch(() => ({ error: 'Failed to connect to server' }));
         throw new Error(data.error || `Login failed: ${response.status}`);
       }
-      
+
       let data;
       try {
         // If we reach here, we need to clone the response since we can't use it twice
@@ -116,28 +116,28 @@ const Login = () => {
         console.error('JSON parsing error:', jsonError);
         throw new Error('Server returned invalid JSON response');
       }
-      
+
       if (!data.token) {
         throw new Error('No token received from server');
       }
-      
+
       console.log('Login successful, received token');
       console.log('Token type:', typeof data.token);
       console.log('Token prefix:', data.token.substring(0, 10));
-      
+
       // Ensure we have valid user data
       const userData = data.user || {
         id: 'temp-id',
         name: email.split('@')[0],
         email: email
       };
-      
+
       // Store token in localStorage
       localStorage.setItem('token', data.token);
-      
+
       // Update auth context
       login(userData, data.token);
-      
+
       // Redirect to the return URL
       navigate(returnUrl);
     } catch (err) {
@@ -151,27 +151,27 @@ const Login = () => {
   return (
     <div className="min-h-screen bg-dark-bg-primary overflow-hidden text-dark-text-primary">
       <Header />
-      
+
       {/* Background elements */}
       <div className="absolute inset-0 overflow-hidden -z-10">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-dark-accent-primary rounded-full opacity-10 blur-3xl"></div>
         <div className="absolute top-1/3 -left-20 w-72 h-72 bg-blue-500 rounded-full opacity-10 blur-3xl"></div>
         <div className="absolute -bottom-40 left-1/3 w-80 h-80 bg-indigo-500 rounded-full opacity-10 blur-3xl"></div>
-        
+
         {/* Grid pattern overlay */}
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMwLTkuOTQtOC4wNi0xOC0xOC0xOFYwaDQydjQySDM2VjE4eiIgZmlsbD0iI2ZmZmZmZiIgZmlsbC1vcGFjaXR5PSIwLjAyIi8+PC9nPjwvc3ZnPg==')] opacity-10"></div>
       </div>
-      
+
       <main className="py-32 px-4 relative z-10">
         <div className="container mx-auto max-w-md">
           <div className="relative">
             {/* Glow effect behind card */}
             <div className="absolute -inset-1 bg-gradient-to-r from-dark-accent-primary to-dark-accent-secondary rounded-2xl blur-xl opacity-20 transform -rotate-3 scale-105 animate-pulse-shadow"></div>
-            
+
             {/* Card */}
             <div className="relative bg-dark-bg-secondary/80 backdrop-blur-md rounded-2xl border border-dark-border/60 shadow-dark-xl overflow-hidden transform transition-all duration-300 hover:shadow-dark-accent-primary/10">
               <div className="absolute inset-0 bg-gradient-to-br from-dark-accent-primary/5 to-dark-accent-secondary/5 opacity-80"></div>
-              
+
               <div className="relative py-10 px-8">
                 <div className="text-center mb-8">
                   <h2 className="text-3xl font-bold mb-2 text-dark-text-primary">
@@ -181,7 +181,7 @@ const Login = () => {
                     Sign in to your FileForge account
                   </p>
                 </div>
-                
+
                 {returnUrl !== '/' && (
                   <div className="mb-6 p-4 rounded-lg bg-dark-accent-primary/10 border border-dark-accent-primary/20 text-dark-text-primary text-sm flex items-center">
                     <svg className="w-5 h-5 mr-2 text-dark-accent-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -190,7 +190,7 @@ const Login = () => {
                     <span>You'll be redirected back after logging in.</span>
                   </div>
                 )}
-                
+
                 {error && (
                   <div className="mb-6 p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-start">
                     <svg className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -199,7 +199,7 @@ const Login = () => {
                     <span>{error}</span>
                   </div>
                 )}
-                
+
                 <form onSubmit={handleSubmit} className="space-y-6 max-w-sm mx-auto">
                   <div className="group relative">
                     <label htmlFor="email" className="block text-sm font-medium text-dark-text-secondary mb-2 transition-colors group-focus-within:text-dark-accent-primary">
@@ -226,7 +226,7 @@ const Login = () => {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="group relative">
                     <div className="flex items-center justify-between mb-2">
                       <label htmlFor="password" className="block text-sm font-medium text-dark-text-secondary transition-colors group-focus-within:text-dark-accent-primary">
@@ -257,7 +257,7 @@ const Login = () => {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="pt-2">
                     <button
                       type="submit"
@@ -286,7 +286,7 @@ const Login = () => {
                     </button>
                   </div>
                 </form>
-                
+
                 <div className="mt-8 text-center">
                   <p className="text-sm text-dark-text-secondary">
                     Don't have an account?{' '}
@@ -304,4 +304,4 @@ const Login = () => {
   );
 };
 
-export default Login; 
+export default Login;
