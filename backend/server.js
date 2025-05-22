@@ -239,16 +239,6 @@ app.get('/api/test', (req, res) => {
     });
 });
 
-// Add a catch-all route for debugging API access issues
-app.use('/api/*', (req, res) => {
-    res.setHeader('Content-Type', 'application/json');
-    res.status(404).json({
-        error: 'API endpoint not found',
-        requestedUrl: req.originalUrl,
-        method: req.method
-    });
-});
-
 // Serve static files AFTER API routes to prevent conflicts
 app.use(express.static(path.join(__dirname, 'public'), {
     index: false,
