@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const User = require('../models/user');
+const User = require('../models/User');
 const { ensureApiAuth } = require('../middleware/auth');
 const { uploadImage, deleteImage } = require('../services/cloudinary');
 const fs = require('fs');
@@ -11,11 +11,11 @@ const path = require('path');
 router.put('/upload-base64', ensureApiAuth, async (req, res) => {
     try {
         const { imageData, contentType } = req.body;
-        
+
         if (!imageData || !contentType) {
             return res.status(400).json({ error: 'Image data and content type are required' });
         }
-        
+
         // Validate that the image isn't too large
         // Base64 length is approximately 4/3 of the original file size
         // 5MB max file size would be roughly 6.67MB in Base64
@@ -23,21 +23,21 @@ router.put('/upload-base64', ensureApiAuth, async (req, res) => {
         if (imageData.length > maxBase64Length) {
             return res.status(400).json({ error: 'Image too large. Maximum size is 5MB.' });
         }
-        
+
         // Find the user
         const user = await User.findById(req.user._id);
-        
+
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
-        
+
         // Format the data URI correctly for Cloudinary
-        const dataUri = imageData.startsWith('data:') 
-            ? imageData 
+        const dataUri = imageData.startsWith('data:')
+            ? imageData
             : `data:${contentType};base64,${imageData}`;
-        
+
         console.log(`Processing profile image upload for user: ${user._id}`);
-        
+
         // Delete previous image from Cloudinary if exists
         if (user.cloudinaryId) {
             try {
@@ -48,27 +48,27 @@ router.put('/upload-base64', ensureApiAuth, async (req, res) => {
                 // Continue with upload even if delete fails
             }
         }
-        
+
         // Upload to Cloudinary
         const uploadResult = await uploadImage(dataUri, {
             folder: 'fileforge/profile-pics',
             public_id: `user_${user._id}`,
             overwrite: true
         });
-        
+
         console.log('Upload result from Cloudinary:', uploadResult.url);
-        
+
         // Update user profile with Cloudinary URL and ID
         user.profilePic = uploadResult.url;
         user.cloudinaryId = uploadResult.public_id;
-        
+
         // Remove the old base64 data to save space
         user.profilePicData = undefined;
-        
+
         await user.save();
-        
+
         console.log(`Profile picture updated successfully for user: ${user._id}`);
-        
+
         res.json({
             success: true,
             message: 'Profile picture uploaded successfully',
@@ -91,11 +91,11 @@ router.put('/upload-base64', ensureApiAuth, async (req, res) => {
 router.get('/image/:userId', async (req, res) => {
     try {
         const user = await User.findById(req.params.userId);
-        
+
         if (!user || !user.profilePic) {
             return res.status(404).json({ error: 'Profile image not found' });
         }
-        
+
         // Return the Cloudinary image URL
         res.json({
             success: true,
@@ -107,4 +107,4 @@ router.get('/image/:userId', async (req, res) => {
     }
 });
 
-module.exports = router; 
+module.exports = router;

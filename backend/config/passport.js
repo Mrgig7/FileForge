@@ -1,6 +1,6 @@
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
-const User = require('../models/user');
+const User = require('../models/User');
 
 // Local strategy using email and password
 passport.use(new LocalStrategy(
@@ -9,18 +9,18 @@ passport.use(new LocalStrategy(
         try {
             // Find user by email
             const user = await User.findOne({ email });
-            
+
             // If user doesn't exist
             if (!user) {
                 return done(null, false, { message: 'Incorrect email or password' });
             }
-            
+
             // Check password
-            const isMatch = await user.verifyPassword(password);
+            const isMatch = await user.comparePassword(password);
             if (!isMatch) {
                 return done(null, false, { message: 'Incorrect email or password' });
             }
-            
+
             // If successful
             return done(null, user);
         } catch (error) {
@@ -44,4 +44,4 @@ passport.deserializeUser(async (id, done) => {
     }
 });
 
-module.exports = passport; 
+module.exports = passport;

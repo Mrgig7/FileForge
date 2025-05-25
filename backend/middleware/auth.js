@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/user');
+const User = require('../models/User');
 
 // Authentication middleware for web routes
 exports.ensureAuthenticated = (req, res, next) => {

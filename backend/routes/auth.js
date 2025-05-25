@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const passport = require('passport');
-const User = require('../models/user');
+const User = require('../models/User');
 const { ensureGuest, ensureAuthenticated, ensureApiAuth } = require('../middleware/auth');
 const jwt = require('jsonwebtoken');
 const path = require('path');
@@ -11,7 +11,7 @@ const path = require('path');
 router.get('/register', ensureGuest, (req, res) => {
     // Get returnTo parameter or set default
     const returnTo = req.query.returnTo || '/dashboard';
-    
+
     res.render('auth/register', {
         title: 'Register - FileForge',
         returnTo: returnTo,
@@ -29,28 +29,28 @@ router.post('/register', ensureGuest, async (req, res) => {
     try {
         const { name, email, password, confirmPassword, returnTo } = req.body;
         const redirectUrl = returnTo || '/dashboard';
-        
+
         // Validation
         let errors = [];
-        
+
         if (!name || !email || !password || !confirmPassword) {
             errors.push({ msg: 'All fields are required' });
         }
-        
+
         if (password !== confirmPassword) {
             errors.push({ msg: 'Passwords do not match' });
         }
-        
+
         if (password.length < 6) {
             errors.push({ msg: 'Password must be at least 6 characters' });
         }
-        
+
         // Check if email exists
         const existingUser = await User.findOne({ email });
         if (existingUser) {
             errors.push({ msg: 'Email is already registered' });
         }
-        
+
         if (errors.length > 0) {
             return res.render('auth/register', {
                 title: 'Register - FileForge',
@@ -64,16 +64,16 @@ router.post('/register', ensureGuest, async (req, res) => {
                 error: req.flash('error')
             });
         }
-        
+
         // Create new user
         const newUser = new User({
             name,
             email,
             password
         });
-        
+
         await newUser.save();
-        
+
         req.flash('success_msg', 'You are now registered. Please log in.');
         res.redirect(`/auth/login?returnTo=${encodeURIComponent(redirectUrl)}`);
     } catch (error) {
@@ -90,7 +90,7 @@ router.get('/login', ensureGuest, (req, res) => {
     try {
         // Get returnTo parameter or set default
         const returnTo = req.query.returnTo || '/dashboard';
-        
+
         res.render('auth/login', {
             title: 'Login - FileForge',
             returnTo: returnTo,
@@ -106,16 +106,81 @@ router.get('/login', ensureGuest, (req, res) => {
 });
 
 // @route   POST /auth/login
-// @desc    Process login
+// @desc    Process login (Web form submission)
 // @access  Public (guest only)
 router.post('/login', (req, res, next) => {
-    const returnTo = req.body.returnTo || '/dashboard';
-    
-    passport.authenticate('local', {
-        successRedirect: returnTo,
-        failureRedirect: `/auth/login?returnTo=${encodeURIComponent(returnTo)}`,
-        failureFlash: true
-    })(req, res, next);
+    // Check if this is an API request (JSON content-type or Accept header)
+    const isApiRequest = req.headers['content-type']?.includes('application/json') ||
+                        req.headers['accept']?.includes('application/json') ||
+                        req.originalUrl.startsWith('/api/');
+
+    if (isApiRequest) {
+        // Handle API login request
+        console.log('API login route hit with body:', JSON.stringify(req.body));
+
+        // Ensure the content-type header is set for the response
+        res.setHeader('Content-Type', 'application/json');
+
+        // Use passport authenticate method that doesn't automatically redirect
+        passport.authenticate('local', (err, user, info) => {
+            if (err) {
+                console.error('Passport auth error:', err);
+                return res.status(500).json({ error: 'Authentication error' });
+            }
+
+            if (!user) {
+                console.log('Authentication failed:', info.message || 'Invalid credentials');
+                return res.status(401).json({ error: info.message || 'Invalid credentials' });
+            }
+
+            // Create a new session without redirecting
+            req.login(user, { session: true }, (err) => {
+                if (err) {
+                    console.error('Session creation error:', err);
+                    return res.status(500).json({ error: 'Session error' });
+                }
+
+                // Create JWT token
+                const token = jwt.sign(
+                    { id: user._id, name: user.name, email: user.email },
+                    process.env.JWT_SECRET || 'fileforge_jwt_secret',
+                    { expiresIn: '1d' }
+                );
+
+                // Ensure CORS headers are properly set
+                res.header('Access-Control-Allow-Origin', req.headers.origin || 'http://localhost:5173');
+                res.header('Access-Control-Allow-Credentials', 'true');
+                res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE');
+                res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, X-Requested-With');
+
+                // Explicitly set content-type to application/json
+                res.header('Content-Type', 'application/json');
+
+                console.log('Authentication successful for user:', user.email);
+
+                // IMPORTANT: Don't redirect, just return JSON
+                return res.status(200).json({
+                    success: true,
+                    token,
+                    user: {
+                        id: user._id,
+                        name: user.name,
+                        email: user.email,
+                        profilePic: user.profilePic || null
+                    }
+                });
+            });
+        })(req, res, next);
+    } else {
+        // Handle web form login request
+        const returnTo = req.body.returnTo || '/dashboard';
+
+        passport.authenticate('local', {
+            successRedirect: returnTo,
+            failureRedirect: `/auth/login?returnTo=${encodeURIComponent(returnTo)}`,
+            failureFlash: true
+        })(req, res, next);
+    }
 });
 
 // @route   GET /auth/logout
@@ -137,46 +202,46 @@ router.post('/register', async (req, res) => {
     try {
         // Set the content type explicitly to ensure JSON response
         res.setHeader('Content-Type', 'application/json');
-        
+
         const { name, email, password, confirmPassword } = req.body;
-        
+
         console.log('API Registration request for:', email);
-        
+
         // Validation
         let errors = [];
-        
+
         if (!name || !email || !password || !confirmPassword) {
             return res.status(400).json({ error: 'All fields are required' });
         }
-        
+
         if (password !== confirmPassword) {
             return res.status(400).json({ error: 'Passwords do not match' });
         }
-        
+
         if (password.length < 6) {
             return res.status(400).json({ error: 'Password must be at least 6 characters' });
         }
-        
+
         // Check if email exists
         const existingUser = await User.findOne({ email });
         if (existingUser) {
             return res.status(400).json({ error: 'Email is already registered' });
         }
-        
+
         // Create new user
         const newUser = new User({
             name,
             email,
             password
         });
-        
+
         await newUser.save();
-        
+
         console.log('API Registration successful for:', email);
-        
-        res.status(201).json({ 
-            success: true, 
-            message: 'You are now registered. Please log in.' 
+
+        res.status(201).json({
+            success: true,
+            message: 'You are now registered. Please log in.'
         });
     } catch (error) {
         console.error('API Registration error:', error);
@@ -184,66 +249,7 @@ router.post('/register', async (req, res) => {
     }
 });
 
-// @route   POST /api/auth/login
-// @desc    Authenticate user & get token
-// @access  Public
-router.post('/login', (req, res, next) => {
-    console.log('API login route hit with body:', JSON.stringify(req.body));
-    
-    // Ensure the content-type header is set for the response
-    res.setHeader('Content-Type', 'application/json');
-    
-    // Use passport authenticate method that doesn't automatically redirect
-    passport.authenticate('local', (err, user, info) => {
-        if (err) {
-            console.error('Passport auth error:', err);
-            return res.status(500).json({ error: 'Authentication error' });
-        }
-        
-        if (!user) {
-            console.log('Authentication failed:', info.message || 'Invalid credentials');
-            return res.status(401).json({ error: info.message || 'Invalid credentials' });
-        }
-        
-        // Create a new session without redirecting
-        req.login(user, { session: true }, (err) => {
-            if (err) {
-                console.error('Session creation error:', err);
-                return res.status(500).json({ error: 'Session error' });
-            }
-            
-            // Create JWT token
-            const token = jwt.sign(
-                { id: user._id, name: user.name, email: user.email },
-                process.env.JWT_SECRET || 'fileforge_jwt_secret',
-                { expiresIn: '1d' }
-            );
-            
-            // Ensure CORS headers are properly set
-            res.header('Access-Control-Allow-Origin', req.headers.origin || 'http://localhost:5173');
-            res.header('Access-Control-Allow-Credentials', 'true');
-            res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE');
-            res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, X-Requested-With');
-            
-            // Explicitly set content-type to application/json
-            res.header('Content-Type', 'application/json');
-            
-            console.log('Authentication successful for user:', user.email);
-            
-            // IMPORTANT: Don't redirect, just return JSON
-            return res.status(200).json({
-                success: true,
-                token,
-                user: {
-                    id: user._id,
-                    name: user.name,
-                    email: user.email,
-                    profilePic: user.profilePic || null
-                }
-            });
-        });
-    })(req, res, next);
-});
+
 
 // @route   GET /api/auth/user
 // @desc    Get current user
@@ -266,7 +272,7 @@ router.put('/user', ensureApiAuth, async (req, res) => {
         // Check if this is a FormData request with file upload
         const isFormData = req.headers['content-type'] && req.headers['content-type'].startsWith('multipart/form-data');
         let profilePicUrl = null;
-        
+
         // Handle profile picture upload if this is a form submission
         if (isFormData && req.files && req.files.profilePic) {
             // ALTERNATIVE IMPLEMENTATION: Store profile pictures in a cloud storage service
@@ -295,41 +301,41 @@ router.put('/user', ensureApiAuth, async (req, res) => {
             // };
             // const s3Response = await s3.upload(params).promise();
             // profilePicUrl = s3Response.Location;
-            
+
             const profilePic = req.files.profilePic;
-            
+
             // Generate a unique filename to prevent conflicts
             const fs = require('fs');
             const crypto = require('crypto');
             const randomHash = crypto.randomBytes(8).toString('hex');
             const fileName = `profile-${req.user._id}-${randomHash}${path.extname(profilePic.name)}`;
-            
+
             // Create uploads directory if it doesn't exist
             const uploadsDir = path.join(__dirname, '../uploads');
             if (!fs.existsSync(uploadsDir)) {
                 fs.mkdirSync(uploadsDir, { recursive: true });
             }
-            
+
             const uploadPath = path.join(uploadsDir, fileName);
-            
+
             // Move the uploaded file to our uploads directory
             await profilePic.mv(uploadPath);
-            
+
             // Create a URL for the profile picture with cache-busting query param
             profilePicUrl = `/uploads/${fileName}?t=${Date.now()}`;
             console.log(`Profile picture uploaded to: ${profilePicUrl}`);
         }
-        
+
         // Get form data or JSON data
         const { name, email, currentPassword, newPassword } = req.body;
-        
+
         // Find the user
         const user = await User.findById(req.user._id);
-        
+
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
-        
+
         // Update basic info
         if (name) user.name = name;
         if (email && email !== user.email) {
@@ -340,25 +346,25 @@ router.put('/user', ensureApiAuth, async (req, res) => {
             }
             user.email = email;
         }
-        
+
         // Update profile picture URL if uploaded
         if (profilePicUrl) {
             user.profilePic = profilePicUrl;
         }
-        
+
         // Update password if provided
         if (newPassword && currentPassword) {
             // Verify current password
-            const isMatch = await user.verifyPassword(currentPassword);
+            const isMatch = await user.comparePassword(currentPassword);
             if (!isMatch) {
                 return res.status(400).json({ error: 'Current password is incorrect' });
             }
-            
+
             user.password = newPassword;
         }
-        
+
         await user.save();
-        
+
         res.setHeader('Content-Type', 'application/json');
         res.json({
             success: true,
@@ -386,4 +392,4 @@ router.post('/logout', ensureApiAuth, (req, res, next) => {
     });
 });
 
-module.exports = router; 
+module.exports = router;
