@@ -23,63 +23,124 @@ router.get('/register', ensureGuest, (req, res) => {
 });
 
 // @route   POST /auth/register
-// @desc    Process registration
-// @access  Public (guest only)
-router.post('/register', ensureGuest, async (req, res) => {
-    try {
-        const { name, email, password, confirmPassword, returnTo } = req.body;
-        const redirectUrl = returnTo || '/dashboard';
+// @desc    Process registration (Web form submission and API)
+// @access  Public (guest only for web, public for API)
+router.post('/register', async (req, res) => {
+    // Check if this is an API request (JSON content-type or Accept header)
+    const isApiRequest = req.headers['content-type']?.includes('application/json') ||
+                        req.headers['accept']?.includes('application/json') ||
+                        req.originalUrl.startsWith('/api/');
 
-        // Validation
-        let errors = [];
+    if (isApiRequest) {
+        // Handle API registration request
+        try {
+            // Set the content type explicitly to ensure JSON response
+            res.setHeader('Content-Type', 'application/json');
 
-        if (!name || !email || !password || !confirmPassword) {
-            errors.push({ msg: 'All fields are required' });
-        }
+            const { name, email, password, confirmPassword } = req.body;
 
-        if (password !== confirmPassword) {
-            errors.push({ msg: 'Passwords do not match' });
-        }
+            console.log('API Registration request for:', email);
 
-        if (password.length < 6) {
-            errors.push({ msg: 'Password must be at least 6 characters' });
-        }
+            // Validation
+            if (!name || !email || !password || !confirmPassword) {
+                return res.status(400).json({ error: 'All fields are required' });
+            }
 
-        // Check if email exists
-        const existingUser = await User.findOne({ email });
-        if (existingUser) {
-            errors.push({ msg: 'Email is already registered' });
-        }
+            if (password !== confirmPassword) {
+                return res.status(400).json({ error: 'Passwords do not match' });
+            }
 
-        if (errors.length > 0) {
-            return res.render('auth/register', {
-                title: 'Register - FileForge',
-                errors,
+            if (password.length < 6) {
+                return res.status(400).json({ error: 'Password must be at least 6 characters' });
+            }
+
+            // Check if email exists
+            const existingUser = await User.findOne({ email });
+            if (existingUser) {
+                return res.status(400).json({ error: 'Email is already registered' });
+            }
+
+            // Create new user
+            const newUser = new User({
                 name,
                 email,
-                returnTo: redirectUrl,
-                layout: 'layouts/auth',
-                success_msg: req.flash('success_msg'),
-                error_msg: req.flash('error_msg'),
-                error: req.flash('error')
+                password
             });
+
+            await newUser.save();
+
+            console.log('API Registration successful for:', email);
+
+            res.status(201).json({
+                success: true,
+                message: 'You are now registered. Please log in.'
+            });
+        } catch (error) {
+            console.error('API Registration error:', error);
+            res.status(500).json({ error: 'An error occurred during registration' });
+        }
+    } else {
+        // Handle web form registration request
+        // Apply ensureGuest middleware for web requests only
+        if (req.isAuthenticated && req.isAuthenticated()) {
+            return res.redirect('/dashboard');
         }
 
-        // Create new user
-        const newUser = new User({
-            name,
-            email,
-            password
-        });
+        try {
+            const { name, email, password, confirmPassword, returnTo } = req.body;
+            const redirectUrl = returnTo || '/dashboard';
 
-        await newUser.save();
+            // Validation
+            let errors = [];
 
-        req.flash('success_msg', 'You are now registered. Please log in.');
-        res.redirect(`/auth/login?returnTo=${encodeURIComponent(redirectUrl)}`);
-    } catch (error) {
-        console.error('Registration error:', error);
-        req.flash('error_msg', 'An error occurred during registration');
-        res.redirect('/auth/register');
+            if (!name || !email || !password || !confirmPassword) {
+                errors.push({ msg: 'All fields are required' });
+            }
+
+            if (password !== confirmPassword) {
+                errors.push({ msg: 'Passwords do not match' });
+            }
+
+            if (password.length < 6) {
+                errors.push({ msg: 'Password must be at least 6 characters' });
+            }
+
+            // Check if email exists
+            const existingUser = await User.findOne({ email });
+            if (existingUser) {
+                errors.push({ msg: 'Email is already registered' });
+            }
+
+            if (errors.length > 0) {
+                return res.render('auth/register', {
+                    title: 'Register - FileForge',
+                    errors,
+                    name,
+                    email,
+                    returnTo: redirectUrl,
+                    layout: 'layouts/auth',
+                    success_msg: req.flash('success_msg'),
+                    error_msg: req.flash('error_msg'),
+                    error: req.flash('error')
+                });
+            }
+
+            // Create new user
+            const newUser = new User({
+                name,
+                email,
+                password
+            });
+
+            await newUser.save();
+
+            req.flash('success_msg', 'You are now registered. Please log in.');
+            res.redirect(`/auth/login?returnTo=${encodeURIComponent(redirectUrl)}`);
+        } catch (error) {
+            console.error('Registration error:', error);
+            req.flash('error_msg', 'An error occurred during registration');
+            res.redirect('/auth/register');
+        }
     }
 });
 
@@ -194,60 +255,7 @@ router.get('/logout', ensureAuthenticated, (req, res, next) => {
     });
 });
 
-// @route   POST /api/auth/register
-// @desc    Register a new user
-// @access  Public
-// IMPORTANT: This route is mounted at /api/auth in server.js
-router.post('/register', async (req, res) => {
-    try {
-        // Set the content type explicitly to ensure JSON response
-        res.setHeader('Content-Type', 'application/json');
 
-        const { name, email, password, confirmPassword } = req.body;
-
-        console.log('API Registration request for:', email);
-
-        // Validation
-        let errors = [];
-
-        if (!name || !email || !password || !confirmPassword) {
-            return res.status(400).json({ error: 'All fields are required' });
-        }
-
-        if (password !== confirmPassword) {
-            return res.status(400).json({ error: 'Passwords do not match' });
-        }
-
-        if (password.length < 6) {
-            return res.status(400).json({ error: 'Password must be at least 6 characters' });
-        }
-
-        // Check if email exists
-        const existingUser = await User.findOne({ email });
-        if (existingUser) {
-            return res.status(400).json({ error: 'Email is already registered' });
-        }
-
-        // Create new user
-        const newUser = new User({
-            name,
-            email,
-            password
-        });
-
-        await newUser.save();
-
-        console.log('API Registration successful for:', email);
-
-        res.status(201).json({
-            success: true,
-            message: 'You are now registered. Please log in.'
-        });
-    } catch (error) {
-        console.error('API Registration error:', error);
-        res.status(500).json({ error: 'An error occurred during registration' });
-    }
-});
 
 
 
