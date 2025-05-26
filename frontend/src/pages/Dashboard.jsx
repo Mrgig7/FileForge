@@ -6,6 +6,9 @@ import FileCard from '../components/FileCard';
 import FileUploader from '../components/FileUploader';
 import { useNavigate } from 'react-router-dom';
 
+// API base URL from environment or fallback to production URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fileforge-backend.vercel.app/api';
+
 const Dashboard = () => {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,10 +22,10 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const dashboardRef = useRef(null);
-  
+
   const { isAuthenticated, token, login } = useContext(AuthContext);
   const navigate = useNavigate();
-  
+
   useEffect(() => {
     // Simple animation for elements when they come into view
     const observer = new IntersectionObserver(
@@ -47,24 +50,31 @@ const Dashboard = () => {
       });
     };
   }, []);
-  
+
   // Fetch files from backend
   const fetchFiles = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       // Get token from context
       if (!token) {
         console.error('Missing authentication token');
         throw new Error('Authentication required');
       }
-      
+
       console.log('Using token for dashboard API call:', token ? 'Token exists' : 'No token');
       console.log('Current user in AuthContext:', isAuthenticated ? 'Authenticated' : 'Not authenticated');
-      
+
+      // Construct the dashboard URL using API_BASE_URL
+      const dashboardUrl = API_BASE_URL.endsWith('/api')
+        ? `${API_BASE_URL}/dashboard`
+        : `${API_BASE_URL}/api/dashboard`;
+
+      console.log(`Fetching dashboard data from: ${dashboardUrl}`);
+
       // Try to fetch files
-      let response = await fetch('http://localhost:3000/api/dashboard', {
+      let response = await fetch(dashboardUrl, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -73,38 +83,38 @@ const Dashboard = () => {
         },
         credentials: 'include'
       });
-      
+
       // If token is invalid, try to refresh authentication
       if (!response.ok && response.status === 401) {
         console.log('Token authentication failed, attempting to refresh authentication');
-        
+
         // Redirect to login if authentication fails
         navigate('/login', { state: { from: '/dashboard', message: 'Session expired. Please login again.' } });
         return;
       }
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Failed to fetch files' }));
         throw new Error(errorData.error || `Failed to fetch files: ${response.status}`);
       }
-      
+
       const data = await response.json();
-      
+
       console.log('Fetched files from dashboard API:', data);
-      
+
       // Use the files array from the response
       const filesData = data.files || [];
-      
+
       if (filesData.length === 0) {
         console.log('No files found for the current user');
       } else {
         console.log(`Found ${filesData.length} files for the current user`);
       }
-      
+
       // Calculate stats from files
       const totalSize = filesData.reduce((sum, file) => sum + file.size, 0);
       const totalFiles = filesData.length;
-      
+
       setFiles(filesData);
       setStats({
         totalFiles,
@@ -114,7 +124,7 @@ const Dashboard = () => {
     } catch (err) {
       console.error('Error fetching files:', err);
       setError('Failed to load your files. Please try again.');
-      
+
       // If authentication error, redirect to login
       if (err.message.includes('Authentication required') || err.message.includes('Auth token invalid')) {
         navigate('/login');
@@ -127,7 +137,7 @@ const Dashboard = () => {
   // Initial data fetch
   useEffect(() => {
     if (!isAuthenticated || !token) return;
-    
+
     // Load files when authenticated and token is available
     const loadFiles = async () => {
       try {
@@ -136,7 +146,7 @@ const Dashboard = () => {
         console.error("Error in initial data fetch:", err);
       }
     };
-    
+
     loadFiles();
   }, [isAuthenticated, token]); // Add token to dependency array
 
@@ -144,24 +154,24 @@ const Dashboard = () => {
   const filteredFiles = files.filter(file => {
     const matchesSearch = file.originalName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          file.filename?.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     // Since we don't have active/expired status in the backend model,
     // we'll consider files older than 24 hours as expired
     const isExpired = new Date(file.createdAt) < new Date(Date.now() - 24 * 60 * 60 * 1000);
-    
+
     if (activeTab === 'all') return matchesSearch;
     if (activeTab === 'active') return matchesSearch && !isExpired;
     if (activeTab === 'expired') return matchesSearch && isExpired;
-    
+
     return matchesSearch;
   });
-  
+
   // Handle file upload success
   const handleUploadSuccess = async () => {
     setShowUploader(false);
     await fetchFiles(); // Refresh the files list
   };
-  
+
   // Handle file deletion
   const handleDeleteFile = async (uuid) => {
     try {
@@ -194,7 +204,7 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-dark-bg-primary overflow-hidden text-dark-text-primary">
       <Header />
-      
+
       {/* Quick Actions Bar */}
       <div className="bg-dark-bg-secondary border-b border-dark-border/40">
         <div className="container mx-auto px-4">
@@ -203,7 +213,7 @@ const Dashboard = () => {
               {/* Storage Usage */}
               <div className="flex items-center gap-3">
                 <div className="w-32 h-2 bg-dark-bg-primary rounded-full overflow-hidden">
-                  <div 
+                  <div
                     className="h-full bg-gradient-to-r from-dark-accent-primary to-blue-500 rounded-full"
                     style={{ width: `${Math.min((stats.totalSize / (1024 * 1024 * 1024)) * 100, 100)}%` }}
                   ></div>
@@ -234,7 +244,7 @@ const Dashboard = () => {
 
             {/* Quick Actions */}
             <div className="flex items-center gap-3">
-              <button 
+              <button
                 onClick={() => setShowUploader(true)}
                 className="flex items-center gap-2 px-3 py-1.5 text-sm bg-dark-accent-primary hover:bg-dark-accent-secondary text-white rounded-lg transition-colors"
               >
@@ -254,7 +264,7 @@ const Dashboard = () => {
           <div className="container relative mx-auto px-4 max-w-full lg:max-w-screen-2xl">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
               <h2 className="text-3xl font-bold text-dark-text-primary">My Files</h2>
-              
+
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full sm:w-auto">
                 {/* Tabs */}
                 <div className="flex bg-dark-bg-secondary rounded-xl p-1 border border-dark-border/50">
@@ -272,7 +282,7 @@ const Dashboard = () => {
                     </button>
                   ))}
                 </div>
-                
+
                 {/* Search */}
                 <div className="relative w-full sm:w-64">
                   <input
@@ -288,7 +298,7 @@ const Dashboard = () => {
                 </div>
               </div>
             </div>
-            
+
             {loading ? (
               <div className="text-center py-12">
                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-dark-accent-primary"></div>
@@ -310,7 +320,7 @@ const Dashboard = () => {
                   {searchQuery ? 'No files found' : 'No files yet'}
                 </h3>
                 <p className="mt-1 text-dark-text-secondary">
-                  {searchQuery 
+                  {searchQuery
                     ? 'Try adjusting your search or filter criteria'
                     : 'Upload your first file to get started'}
                 </p>
@@ -329,7 +339,7 @@ const Dashboard = () => {
             ) : (
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredFiles.map(file => (
-                  <FileCard 
+                  <FileCard
                     key={file.uuid}
                     file={file}
                     onDelete={() => handleDeleteFile(file.uuid)}
@@ -353,4 +363,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard; 
+export default Dashboard;

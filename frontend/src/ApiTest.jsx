@@ -1,29 +1,39 @@
 import { useState, useEffect } from 'react';
 
+// API base URL from environment or fallback to production URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fileforge-backend.vercel.app/api';
+
 const ApiTest = () => {
   const [testResult, setTestResult] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
-  
+
   const testApi = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
+      // Construct the test URL using API_BASE_URL
+      const testUrl = API_BASE_URL.endsWith('/api')
+        ? `${API_BASE_URL}/test`
+        : `${API_BASE_URL}/api/test`;
+
+      console.log(`Testing API at: ${testUrl}`);
+
       // Try the simple GET test endpoint
-      const getResponse = await fetch('http://localhost:3000/api/test', {
+      const getResponse = await fetch(testUrl, {
         method: 'GET',
         headers: {
           'Accept': 'application/json'
         }
       });
-      
+
       console.log('GET test response status:', getResponse.status);
       console.log('GET test headers:', Object.fromEntries([...getResponse.headers]));
-      
+
       if (getResponse.ok) {
         const getContentType = getResponse.headers.get('content-type');
-        
+
         if (getContentType && getContentType.includes('application/json')) {
           const getData = await getResponse.json();
           console.log('GET test succeeded:', getData);
@@ -36,9 +46,16 @@ const ApiTest = () => {
       } else {
         setError((prev) => ({ ...prev, get: `Failed with status: ${getResponse.status}` }));
       }
-      
+
+      // Construct the test-auth URL using API_BASE_URL
+      const testAuthUrl = API_BASE_URL.endsWith('/api')
+        ? `${API_BASE_URL}/test-auth`
+        : `${API_BASE_URL}/api/test-auth`;
+
+      console.log(`Testing auth API at: ${testAuthUrl}`);
+
       // Try the POST test endpoint
-      const postResponse = await fetch('http://localhost:3000/api/test-auth', {
+      const postResponse = await fetch(testAuthUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -46,13 +63,13 @@ const ApiTest = () => {
         },
         body: JSON.stringify({ email: 'test@example.com', password: 'password123' })
       });
-      
+
       console.log('POST test response status:', postResponse.status);
       console.log('POST test headers:', Object.fromEntries([...postResponse.headers]));
-      
+
       if (postResponse.ok) {
         const postContentType = postResponse.headers.get('content-type');
-        
+
         if (postContentType && postContentType.includes('application/json')) {
           const postData = await postResponse.json();
           console.log('POST test succeeded:', postData);
@@ -72,17 +89,17 @@ const ApiTest = () => {
       setLoading(false);
     }
   };
-  
+
   useEffect(() => {
     testApi();
   }, []);
-  
+
   return (
     <div className="p-5 max-w-xl mx-auto mt-10 bg-gray-800 text-white rounded-lg shadow-lg">
       <h1 className="text-2xl font-bold mb-4">API Test Results</h1>
-      
+
       {loading && <p className="text-blue-400">Testing API endpoints...</p>}
-      
+
       {error && (
         <div className="mb-4 p-3 bg-red-900/50 border border-red-500 rounded-md">
           <h2 className="font-bold text-red-400 mb-2">Errors:</h2>
@@ -91,7 +108,7 @@ const ApiTest = () => {
           </pre>
         </div>
       )}
-      
+
       {testResult && (
         <div className="mb-4 p-3 bg-green-900/50 border border-green-500 rounded-md">
           <h2 className="font-bold text-green-400 mb-2">Success:</h2>
@@ -100,7 +117,7 @@ const ApiTest = () => {
           </pre>
         </div>
       )}
-      
+
       <button
         onClick={testApi}
         disabled={loading}
@@ -112,4 +129,4 @@ const ApiTest = () => {
   );
 };
 
-export default ApiTest; 
+export default ApiTest;

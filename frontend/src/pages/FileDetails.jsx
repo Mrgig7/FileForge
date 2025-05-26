@@ -2,6 +2,9 @@ import { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import Header from '../components/Header';
+
+// API base URL from environment or fallback to production URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fileforge-backend.vercel.app/api';
 import ShareForm from '../components/ShareForm';
 
 const FileDetails = () => {
@@ -12,10 +15,10 @@ const FileDetails = () => {
   const [showShareForm, setShowShareForm] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const [copySuccess, setCopySuccess] = useState(false);
-  
+
   const { token, isAuthenticated } = useContext(AuthContext);
   const navigate = useNavigate();
-  
+
   // Track scroll for parallax effects
   useEffect(() => {
     const handleScroll = () => {
@@ -24,7 +27,7 @@ const FileDetails = () => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-  
+
   // Fetch file details
   useEffect(() => {
     const fetchFileDetails = async () => {
@@ -32,19 +35,26 @@ const FileDetails = () => {
         navigate('/login?returnTo=/dashboard');
         return;
       }
-      
+
       try {
-        const response = await fetch(`http://localhost:3000/api/dashboard/file/${id}`, {
+        // Construct the file details URL using API_BASE_URL
+        const fileDetailsUrl = API_BASE_URL.endsWith('/api')
+          ? `${API_BASE_URL}/dashboard/file/${id}`
+          : `${API_BASE_URL}/api/dashboard/file/${id}`;
+
+        console.log(`Fetching file details from: ${fileDetailsUrl}`);
+
+        const response = await fetch(fileDetailsUrl, {
           headers: {
             'Authorization': `Bearer ${token}`
           },
           credentials: 'include'
         });
-        
+
         if (!response.ok) {
           throw new Error(response.status === 404 ? 'File not found' : 'Failed to fetch file details');
         }
-        
+
         const data = await response.json();
         setFile(data.file);
       } catch (err) {
@@ -54,23 +64,23 @@ const FileDetails = () => {
         setLoading(false);
       }
     };
-    
+
     fetchFileDetails();
   }, [id, isAuthenticated, token, navigate]);
-  
+
   // Format date
   const formatDate = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
     return new Intl.DateTimeFormat('en-US', {
-      year: 'numeric', 
-      month: 'long', 
+      year: 'numeric',
+      month: 'long',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
     }).format(date);
   };
-  
+
   // Format bytes
   const formatBytes = (bytes) => {
     if (!bytes) return '0 Bytes';
@@ -79,13 +89,13 @@ const FileDetails = () => {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
-  
+
   // Handle delete
   const handleDelete = async () => {
     if (!file || !window.confirm('Are you sure you want to delete this file?')) {
       return;
     }
-    
+
     try {
       const response = await fetch(`http://localhost:3000/api/dashboard/file/${id}`, {
         method: 'DELETE',
@@ -105,7 +115,7 @@ const FileDetails = () => {
       setError('Failed to delete file');
     }
   };
-  
+
   // Copy link to clipboard
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text)
@@ -117,7 +127,7 @@ const FileDetails = () => {
         console.error('Failed to copy: ', err);
       });
   };
-  
+
   if (!isAuthenticated) {
     return null; // Will redirect in useEffect
   }
@@ -125,38 +135,38 @@ const FileDetails = () => {
   return (
     <div className="min-h-screen bg-dark-bg-primary overflow-hidden text-dark-text-primary">
       <Header />
-      
+
       <main className="relative py-20">
         {/* Animated background elements */}
         <div className="absolute inset-0 overflow-hidden">
-          <div 
+          <div
             className="absolute -top-40 -right-40 w-96 h-96 bg-dark-accent-primary rounded-full opacity-10 blur-3xl"
             style={{ transform: `translateY(${scrollY * 0.1}px)` }}
           ></div>
-          <div 
+          <div
             className="absolute top-1/3 -left-20 w-72 h-72 bg-blue-500 rounded-full opacity-10 blur-3xl"
             style={{ transform: `translateY(${scrollY * -0.05}px)` }}
           ></div>
-          <div 
+          <div
             className="absolute -bottom-40 left-1/3 w-80 h-80 bg-indigo-500 rounded-full opacity-10 blur-3xl"
             style={{ transform: `translateY(${scrollY * 0.2}px)` }}
           ></div>
-          
+
           {/* Grid pattern overlay */}
           <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMwLTkuOTQtOC4wNi0xOC0xOC0xOFYwaDQydjQySDM2VjE4eiIgZmlsbD0iI2ZmZmZmZiIgZmlsbC1vcGFjaXR5PSIwLjAyIi8+PC9nPjwvc3ZnPg==')] opacity-10"></div>
         </div>
-        
+
         <div className="container mx-auto px-4 max-w-6xl relative">
           <div className="mb-8">
             <Link to="/dashboard" className="flex items-center text-dark-text-secondary hover:text-dark-accent-primary transition-colors group">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" 
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"
                 className="w-5 h-5 mr-2 transform group-hover:-translate-x-1 transition-transform">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
               </svg>
               Back to Dashboard
             </Link>
           </div>
-          
+
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <div className="relative">
@@ -204,18 +214,18 @@ const FileDetails = () => {
                           </div>
                         </div>
                       </div>
-                      
+
                       <div className="space-y-6">
                         <div>
                           <h3 className="text-sm uppercase tracking-wider text-dark-text-secondary font-medium mb-3">Download Link</h3>
                           <div className="flex items-center mt-1 bg-dark-bg-primary/40 border border-dark-border/60 rounded-lg overflow-hidden">
-                            <input 
-                              type="text" 
+                            <input
+                              type="text"
                               value={file.downloadLink}
                               readOnly
                               className="bg-transparent flex-grow px-4 py-3 outline-none text-dark-text-primary"
                             />
-                            <button 
+                            <button
                               className={`px-4 py-3 font-medium transition-colors ${copySuccess ? 'text-green-400' : 'text-dark-accent-primary hover:text-dark-accent-secondary'}`}
                               onClick={() => copyToClipboard(file.downloadLink)}
                             >
@@ -240,7 +250,7 @@ const FileDetails = () => {
                             Anyone with this link can download the file
                           </p>
                         </div>
-                        
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           {file.sender && (
                             <div>
@@ -250,7 +260,7 @@ const FileDetails = () => {
                               </p>
                             </div>
                           )}
-                          
+
                           {file.receiver && (
                             <div>
                               <h3 className="text-sm uppercase tracking-wider text-dark-text-secondary font-medium mb-2">Shared To</h3>
@@ -260,7 +270,7 @@ const FileDetails = () => {
                             </div>
                           )}
                         </div>
-                        
+
                         <div className="flex flex-wrap gap-4 pt-6 border-t border-dark-border/60">
                           <a
                             href={file.downloadLink}
@@ -276,7 +286,7 @@ const FileDetails = () => {
                               Download
                             </span>
                           </a>
-                          
+
                           <button
                             className="relative group px-6 py-3 bg-transparent border border-dark-border text-dark-text-primary hover:border-dark-accent-primary font-medium rounded-lg transition-all duration-300"
                             onClick={() => setShowShareForm(!showShareForm)}
@@ -289,7 +299,7 @@ const FileDetails = () => {
                             </span>
                             <span className="absolute inset-0 bg-dark-accent-primary/10 scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300 rounded-lg"></span>
                           </button>
-                          
+
                           <button
                             className="relative group px-6 py-3 bg-red-900/20 text-red-400 border border-red-500/30 hover:bg-red-500/20 font-medium rounded-lg transition-all duration-300"
                             onClick={handleDelete}
@@ -307,7 +317,7 @@ const FileDetails = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="col-span-1">
                 {showShareForm && (
                   <div className="relative">
@@ -351,4 +361,4 @@ const FileDetails = () => {
   );
 };
 
-export default FileDetails; 
+export default FileDetails;
