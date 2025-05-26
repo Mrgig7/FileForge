@@ -337,8 +337,15 @@ router.put('/user', ensureApiAuth, async (req, res) => {
         // Get form data or JSON data
         const { name, email, currentPassword, newPassword } = req.body;
 
-        // Find the user
-        const user = await User.findById(req.user._id);
+        // Find the user and include password field if password update is requested
+        let user;
+        if (newPassword && currentPassword) {
+            // Include password field for password verification
+            user = await User.findById(req.user._id).select('+password');
+        } else {
+            // Regular user lookup without password field
+            user = await User.findById(req.user._id);
+        }
 
         if (!user) {
             return res.status(404).json({ error: 'User not found' });

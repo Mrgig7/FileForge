@@ -7,8 +7,9 @@ passport.use(new LocalStrategy(
     { usernameField: 'email' },
     async (email, password, done) => {
         try {
-            // Find user by email
-            const user = await User.findOne({ email });
+            // Find user by email and explicitly include password field
+            // The password field has select: false by default, so we need to explicitly include it
+            const user = await User.findOne({ email }).select('+password');
 
             // If user doesn't exist
             if (!user) {
@@ -24,6 +25,7 @@ passport.use(new LocalStrategy(
             // If successful
             return done(null, user);
         } catch (error) {
+            console.error('Passport authentication error:', error);
             return done(error);
         }
     }
