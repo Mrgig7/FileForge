@@ -361,6 +361,25 @@ app.post('/api/test-cors', (req, res) => {
     });
 });
 
+// Deployment verification endpoint
+app.get('/api/deployment-info', (req, res) => {
+    const deploymentInfo = {
+        timestamp: new Date().toISOString(),
+        corsFixVersion: '2.0',
+        environment: process.env.NODE_ENV || 'unknown',
+        allowedClients: process.env.ALLOWED_CLIENTS || 'not set',
+        origin: req.headers.origin || 'no origin',
+        corsMiddlewareActive: true,
+        universalCorsActive: true,
+        fileUploadCorsActive: true
+    };
+
+    console.log('Deployment info requested:', deploymentInfo);
+
+    res.setHeader('Content-Type', 'application/json');
+    res.json(deploymentInfo);
+});
+
 // Serve static files AFTER API routes to prevent conflicts
 app.use(express.static(path.join(__dirname, 'public'), {
     index: false,

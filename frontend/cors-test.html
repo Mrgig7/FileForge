@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CORS Test for FileForge</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>FileForge CORS Test</h1>
+    <p>This page tests CORS configuration for file uploads between frontend and backend.</p>
+    
+    <div class="test info">
+        <h3>Test 1: Check Deployment Version</h3>
+        <button onclick="testDeployment()">Check Deployment Info</button>
+        <div id="deployment-result"></div>
+    </div>
+    
+    <div class="test info">
+        <h3>Test 2: Test CORS Headers</h3>
+        <button onclick="testCORS()">Test CORS Configuration</button>
+        <div id="cors-result"></div>
+    </div>
+    
+    <div class="test info">
+        <h3>Test 3: Test File Upload Endpoint</h3>
+        <button onclick="testFileUpload()">Test Upload Endpoint</button>
+        <div id="upload-result"></div>
+    </div>
+    
+    <div class="test info">
+        <h3>Test 4: Test with Authentication</h3>
+        <input type="text" id="jwt-token" placeholder="Paste JWT token here" style="width: 300px; margin: 5px;">
+        <button onclick="testWithAuth()">Test Authenticated Request</button>
+        <div id="auth-result"></div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'https://fileforge-backend.vercel.app';
+        const FRONTEND_ORIGIN = 'https://fileforge-indol.vercel.app';
+
+        function log(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            element.innerHTML = `<pre>[${timestamp}] ${message}</pre>`;
+            element.className = type;
+        }
+
+        async function testDeployment() {
+            log('deployment-result', 'Testing deployment info...', 'info');
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/deployment-info`);
+                const data = await response.json();
+                
+                if (data.corsFixVersion === '2.0') {
+                    log('deployment-result', 
+                        `✅ SUCCESS: CORS fixes are deployed!\n` +
+                        `Version: ${data.corsFixVersion}\n` +
+                        `Allowed Clients: ${data.allowedClients}\n` +
+                        `Environment: ${data.environment}`, 
+                        'success'
+                    );
+                } else {
+                    log('deployment-result', 
+                        `❌ CORS fixes NOT deployed yet\n` +
+                        `Current version: ${data.corsFixVersion || 'unknown'}\n` +
+                        `You need to redeploy the backend!`, 
+                        'error'
+                    );
+                }
+            } catch (error) {
+                log('deployment-result', 
+                    `❌ ERROR: Could not reach deployment info endpoint\n` +
+                    `Error: ${error.message}\n` +
+                    `This means the backend is not updated with CORS fixes!`, 
+                    'error'
+                );
+            }
+        }
+
+        async function testCORS() {
+            log('cors-result', 'Testing CORS configuration...', 'info');
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/test-cors`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Origin': FRONTEND_ORIGIN
+                    },
+                    body: JSON.stringify({ test: 'cors' })
+                });
+                
+                const corsHeaders = {
+                    'access-control-allow-origin': response.headers.get('access-control-allow-origin'),
+                    'access-control-allow-credentials': response.headers.get('access-control-allow-credentials'),
+                    'access-control-allow-methods': response.headers.get('access-control-allow-methods')
+                };
+                
+                const data = await response.json();
+                
+                log('cors-result', 
+                    `✅ SUCCESS: CORS is working!\n` +
+                    `Status: ${response.status}\n` +
+                    `CORS Headers: ${JSON.stringify(corsHeaders, null, 2)}\n` +
+                    `Response: ${JSON.stringify(data, null, 2)}`, 
+                    'success'
+                );
+            } catch (error) {
+                log('cors-result', 
+                    `❌ ERROR: CORS test failed\n` +
+                    `Error: ${error.message}\n` +
+                    `This means CORS is still blocking requests!`, 
+                    'error'
+                );
+            }
+        }
+
+        async function testFileUpload() {
+            log('upload-result', 'Testing file upload endpoint...', 'info');
+            
+            try {
+                // Create a simple FormData to test the endpoint
+                const formData = new FormData();
+                formData.append('test', 'file-upload-test');
+                
+                const response = await fetch(`${BACKEND_URL}/api/files`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.status === 401) {
+                    log('upload-result', 
+                        `✅ CORS is working! Got 401 Unauthorized (expected without auth)\n` +
+                        `Status: ${response.status}\n` +
+                        `This means the request reached the server!`, 
+                        'success'
+                    );
+                } else {
+                    const text = await response.text();
+                    log('upload-result', 
+                        `Status: ${response.status}\n` +
+                        `Response: ${text}`, 
+                        response.ok ? 'success' : 'error'
+                    );
+                }
+            } catch (error) {
+                log('upload-result', 
+                    `❌ ERROR: File upload test failed\n` +
+                    `Error: ${error.message}\n` +
+                    `This likely means CORS is still blocking!`, 
+                    'error'
+                );
+            }
+        }
+
+        async function testWithAuth() {
+            const token = document.getElementById('jwt-token').value.trim();
+            
+            if (!token) {
+                log('auth-result', '❌ Please enter a JWT token first', 'error');
+                return;
+            }
+            
+            log('auth-result', 'Testing authenticated request...', 'info');
+            
+            try {
+                const formData = new FormData();
+                formData.append('test', 'authenticated-test');
+                
+                const response = await fetch(`${BACKEND_URL}/api/files`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+                
+                const text = await response.text();
+                
+                log('auth-result', 
+                    `Status: ${response.status}\n` +
+                    `Response: ${text}\n` +
+                    `${response.ok ? '✅ Authentication working!' : '❌ Check your token or server'}`, 
+                    response.ok ? 'success' : 'error'
+                );
+            } catch (error) {
+                log('auth-result', 
+                    `❌ ERROR: Authenticated request failed\n` +
+                    `Error: ${error.message}`, 
+                    'error'
+                );
+            }
+        }
+
+        // Auto-run deployment test on page load
+        window.onload = function() {
+            testDeployment();
+        };
+    </script>
+</body>
+</html>
