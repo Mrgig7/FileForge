@@ -11,6 +11,34 @@ const jwt = require('jsonwebtoken');
 const fileUpload = require('express-fileupload');
 require('dotenv').config();
 
+// EMERGENCY CORS FIX - HIGHEST PRIORITY MIDDLEWARE
+app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    const allowedOrigins = [
+        'https://fileforge-indol.vercel.app',
+        'https://fileforge-react.vercel.app',
+        'http://localhost:5173'
+    ];
+
+    if (!origin || allowedOrigins.includes(origin)) {
+        res.header('Access-Control-Allow-Origin', origin || 'https://fileforge-indol.vercel.app');
+        res.header('Access-Control-Allow-Credentials', 'true');
+        res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
+        res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control');
+        res.header('Access-Control-Expose-Headers', 'Authorization, Content-Length');
+
+        console.log(`🚨 EMERGENCY CORS headers set for origin: ${origin || 'no-origin'}`);
+    }
+
+    // Handle preflight requests immediately
+    if (req.method === 'OPTIONS') {
+        console.log('🚨 EMERGENCY preflight handled');
+        return res.status(200).end();
+    }
+
+    next();
+});
+
 // CORS - Move this up to be one of the first middleware
 const corsOptions = {
     origin: function(origin, callback) {
