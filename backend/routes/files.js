@@ -24,13 +24,27 @@ let upload = multer({
 // @desc    Upload a file
 // @access  Private
 router.post('/', ensureApiAuth, async (req, res) => {
-    console.log('=== FILE UPLOAD REQUEST ===');
-    console.log('Upload request received');
+    console.log('=== FILE UPLOAD REQUEST START ===');
+    console.log('Timestamp:', new Date().toISOString());
     console.log('Origin:', req.headers.origin);
     console.log('Content-Type:', req.headers['content-type']);
-    console.log('User:', req.user ? req.user.email : 'No user');
+    console.log('Content-Length:', req.headers['content-length']);
+    console.log('User authenticated:', !!req.user);
+    console.log('User details:', req.user ? { id: req.user._id, email: req.user.email } : 'No user');
+    console.log('Request method:', req.method);
+    console.log('Request URL:', req.url);
     console.log('Files object exists:', !!req.files);
+    console.log('Files object type:', typeof req.files);
     console.log('Available files:', req.files ? Object.keys(req.files) : 'No files object');
+    console.log('Request body keys:', req.body ? Object.keys(req.body) : 'No body');
+
+    // Set CORS headers immediately for this route
+    const origin = req.headers.origin;
+    if (origin === 'https://fileforge-indol.vercel.app') {
+        res.header('Access-Control-Allow-Origin', origin);
+        res.header('Access-Control-Allow-Credentials', 'true');
+        console.log('🔧 File upload route CORS headers set for:', origin);
+    }
 
     try {
         // Check if files are present in the request
