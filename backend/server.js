@@ -32,29 +32,89 @@ const corsOptions = {
             });
         }
 
-        // For null origin (like Postman)
+        // For null origin (like Postman, mobile apps, etc.)
         if (!origin) return callback(null, true);
 
         if (allowedOrigins.indexOf(origin) !== -1) {
+            console.log('CORS allowed origin:', origin);
             callback(null, true);
         } else {
             console.log('CORS blocked origin:', origin);
+            console.log('Allowed origins:', allowedOrigins);
             callback(new Error('Not allowed by CORS'));
         }
     },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
-    exposedHeaders: ['Authorization'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'Accept',
+        'X-Requested-With',
+        'Origin',
+        'Cache-Control',
+        'X-File-Name',
+        'X-File-Size',
+        'X-File-Type'
+    ],
+    exposedHeaders: ['Authorization', 'Content-Length', 'X-Foo', 'X-Bar'],
     credentials: true,
-    optionsSuccessStatus: 200
+    optionsSuccessStatus: 200,
+    preflightContinue: false
 }
+
+// Apply CORS middleware
 app.use(cors(corsOptions));
+
+// Additional CORS handling for preflight requests
+app.options('*', cors(corsOptions));
+
+// Special CORS handling for file upload routes
+app.use('/api/files', (req, res, next) => {
+    // Set CORS headers explicitly for file upload routes
+    const origin = req.headers.origin;
+    const allowedOrigins = [
+        'http://127.0.0.1:5173',
+        'http://localhost:5173',
+        'http://localhost:3000',
+        'https://fileforge-react.vercel.app',
+        'https://file-forge-react.vercel.app',
+        'https://fileforge-backend.vercel.app',
+        'https://fileforge-indol.vercel.app'
+    ];
+
+    if (process.env.ALLOWED_CLIENTS) {
+        const envOrigins = process.env.ALLOWED_CLIENTS.split(',');
+        envOrigins.forEach(envOrigin => {
+            allowedOrigins.push(envOrigin.trim().replace(/\/$/, ''));
+        });
+    }
+
+    if (!origin || allowedOrigins.includes(origin)) {
+        res.header('Access-Control-Allow-Origin', origin || '*');
+        res.header('Access-Control-Allow-Credentials', 'true');
+        res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
+        res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, X-File-Name, X-File-Size, X-File-Type');
+        res.header('Access-Control-Expose-Headers', 'Authorization, Content-Length');
+
+        console.log(`File upload CORS headers set for origin: ${origin}`);
+    } else {
+        console.log(`File upload CORS blocked for origin: ${origin}`);
+    }
+
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+        console.log('Handling preflight request for file upload');
+        return res.status(200).end();
+    }
+
+    next();
+});
 
 // Middleware
 app.use((req, res, next) => {
     // Only log essential requests and avoid logging static resource requests
     if (!req.url.includes('/uploads/') && !req.url.includes('/public/')) {
-        console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+        console.log(`${new Date().toISOString()} - ${req.method} ${req.url} - Origin: ${req.headers.origin || 'No origin'}`);
     }
     next();
 });
@@ -236,6 +296,27 @@ app.get('/api/test', (req, res) => {
         allowedOrigins: corsOptions.origin instanceof Function ?
             ['Using function-based origin validation'] :
             corsOptions.origin
+    });
+});
+
+// Add a CORS test route specifically for file uploads
+app.post('/api/test-cors', (req, res) => {
+    console.log('CORS test route hit');
+    console.log('Origin:', req.headers.origin);
+    console.log('Content-Type:', req.headers['content-type']);
+    console.log('Authorization:', req.headers.authorization ? 'Present' : 'Not present');
+
+    res.setHeader('Content-Type', 'application/json');
+    res.json({
+        success: true,
+        message: 'CORS test successful',
+        origin: req.headers.origin || 'No origin header',
+        headers: {
+            'content-type': req.headers['content-type'],
+            'authorization': req.headers.authorization ? 'Present' : 'Not present',
+            'user-agent': req.headers['user-agent']
+        },
+        corsAllowed: true
     });
 });
 

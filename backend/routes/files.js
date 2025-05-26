@@ -24,21 +24,39 @@ let upload = multer({
 // @desc    Upload a file
 // @access  Private
 router.post('/', ensureApiAuth, async (req, res) => {
+    console.log('=== FILE UPLOAD REQUEST ===');
     console.log('Upload request received');
-    console.log('Headers:', JSON.stringify(req.headers));
+    console.log('Origin:', req.headers.origin);
+    console.log('Content-Type:', req.headers['content-type']);
     console.log('User:', req.user ? req.user.email : 'No user');
+    console.log('Files object exists:', !!req.files);
+    console.log('Available files:', req.files ? Object.keys(req.files) : 'No files object');
 
     try {
         // Check if files are present in the request
-        // The frontend sends the file with the field name 'file' in FormData
+        // The frontend sends the file with the field name 'myfile' in FormData
         if (!req.files || (!req.files.file && !req.files.myfile)) {
             console.error('No file in request');
-            console.log('Available files:', req.files ? Object.keys(req.files) : 'No files object');
-            return res.status(400).json({ error: 'No file uploaded. Please select a file.' });
+            console.log('Request body:', req.body);
+            console.log('Request files:', req.files);
+            return res.status(400).json({
+                error: 'No file uploaded. Please select a file.',
+                debug: {
+                    filesExists: !!req.files,
+                    availableFields: req.files ? Object.keys(req.files) : [],
+                    bodyFields: Object.keys(req.body || {})
+                }
+            });
         }
 
         // Try to get the file from either 'file' or 'myfile' field
         const file = req.files.file || req.files.myfile;
+        console.log('File found:', {
+            name: file.name,
+            size: file.size,
+            mimetype: file.mimetype,
+            tempFilePath: file.tempFilePath
+        });
         console.log('File received:', file.name, 'Size:', file.size);
 
         // Determine user ID from authentication
@@ -100,8 +118,24 @@ router.post('/', ensureApiAuth, async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('File upload error:', error);
-        return res.status(500).json({ error: error.message || 'Error uploading file' });
+        console.error('=== FILE UPLOAD ERROR ===');
+        console.error('Error details:', error);
+        console.error('Error stack:', error.stack);
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+
+        // Provide detailed error response for debugging
+        return res.status(500).json({
+            error: error.message || 'Error uploading file',
+            debug: {
+                errorType: error.name,
+                errorMessage: error.message,
+                hasFiles: !!req.files,
+                hasUser: !!req.user,
+                origin: req.headers.origin,
+                contentType: req.headers['content-type']
+            }
+        });
     }
 });
 
