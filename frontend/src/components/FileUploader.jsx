@@ -1,6 +1,9 @@
 import { useState, useRef, useContext, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext';
 
+// API base URL from environment or fallback to production URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fileforge-backend.vercel.app/api';
+
 const FileUploader = ({ onClose, onSuccess }) => {
   const [file, setFile] = useState(null);
   const [progress, setProgress] = useState(0);
@@ -36,7 +39,7 @@ const FileUploader = ({ onClose, onSuccess }) => {
   const handleDrop = (e) => {
     e.preventDefault();
     setDragActive(false);
-    
+
     const droppedFile = e.dataTransfer.files[0];
     if (droppedFile && droppedFile.size > 100 * 1024 * 1024) {
       setError('File size must be less than 100MB');
@@ -59,13 +62,13 @@ const FileUploader = ({ onClose, onSuccess }) => {
 
   const formatBytes = (bytes, decimals = 2) => {
     if (!bytes) return '0 Bytes';
-    
+
     const k = 1024;
     const dm = decimals < 0 ? 0 : decimals;
     const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-    
+
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    
+
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
   };
 
@@ -77,7 +80,7 @@ const FileUploader = ({ onClose, onSuccess }) => {
 
     const formData = new FormData();
     formData.append('myfile', file);
-    
+
     // Add user ID to the form data if available
     if (user && user.id) {
       formData.append('userId', user.id);
@@ -91,13 +94,13 @@ const FileUploader = ({ onClose, onSuccess }) => {
     try {
       // Get token from localStorage if not provided via context
       const authToken = token || localStorage.getItem('token');
-      
+
       console.log('Uploading file with auth token:', authToken ? 'Present' : 'Not present');
       console.log('User context:', user ? `User ${user.email}` : 'No user in context');
-      
+
       // Create headers object
       const headers = {};
-      
+
       if (authToken && authToken !== 'undefined' && authToken !== 'null') {
         headers['Authorization'] = `Bearer ${authToken}`;
         console.log('Authorization header set correctly');
@@ -108,27 +111,52 @@ const FileUploader = ({ onClose, onSuccess }) => {
       console.log('Upload headers:', Object.keys(headers));
       console.log('Uploading file:', file.name, formatBytes(file.size));
 
-      // Use proxied path for API requests
-      const response = await fetch('/api/files', {
+      // Construct the upload URL using API_BASE_URL
+      const uploadUrl = API_BASE_URL.endsWith('/api')
+        ? `${API_BASE_URL}/files`
+        : `${API_BASE_URL}/api/files`;
+
+      console.log(`Uploading file to: ${uploadUrl}`);
+
+      // Make the upload request to the correct backend URL
+      const response = await fetch(uploadUrl, {
         method: 'POST',
         body: formData,
         headers,
         credentials: 'include'
       });
 
-      const data = await response.json();
-      
-      console.log('Upload response:', data);
+      console.log('Upload response status:', response.status);
+      console.log('Upload response headers:', Object.fromEntries([...response.headers]));
+
+      // Handle non-JSON responses (like 405 errors)
+      const contentType = response.headers.get('content-type');
+      let data;
+
+      if (contentType && contentType.includes('application/json')) {
+        try {
+          data = await response.json();
+          console.log('Upload response data:', data);
+        } catch (jsonError) {
+          console.error('JSON parsing error:', jsonError);
+          throw new Error('Server returned invalid JSON response');
+        }
+      } else {
+        // Handle non-JSON responses
+        const textResponse = await response.text();
+        console.error('Non-JSON response:', textResponse);
+        throw new Error(`Server error: ${response.status} ${response.statusText}`);
+      }
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to upload file');
+        throw new Error(data?.error || `Upload failed: ${response.status} ${response.statusText}`);
       }
 
       setFile(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-      
+
       setProgress(100);
       setUploadComplete(true);
       setUploadedFileData(data.file);
@@ -140,12 +168,12 @@ const FileUploader = ({ onClose, onSuccess }) => {
           from: user.email
         }));
       }
-      
+
       // Show email form after upload completes
       setTimeout(() => {
         setShowEmailForm(true);
       }, 1500);
-      
+
     } catch (error) {
       console.error('Upload error:', error);
       setError(error.message || 'Failed to upload file');
@@ -174,7 +202,14 @@ const FileUploader = ({ onClose, onSuccess }) => {
     setError('');
 
     try {
-      const response = await fetch('/api/files/send-email', {
+      // Construct the email URL using API_BASE_URL
+      const emailUrl = API_BASE_URL.endsWith('/api')
+        ? `${API_BASE_URL}/files/send`
+        : `${API_BASE_URL}/api/files/send`;
+
+      console.log(`Sending email via: ${emailUrl}`);
+
+      const response = await fetch(emailUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -182,8 +217,9 @@ const FileUploader = ({ onClose, onSuccess }) => {
         },
         body: JSON.stringify({
           ...emailData,
-          fileId: uploadedFileData.uuid,
-          fileName: uploadedFileData.originalName || uploadedFileData.fileName
+          uuid: uploadedFileData.uuid,
+          emailTo: emailData.to,
+          emailFrom: emailData.from
         })
       });
 
@@ -194,14 +230,14 @@ const FileUploader = ({ onClose, onSuccess }) => {
       }
 
       setEmailSent(true);
-      
+
       // Close the modal after email is sent (after showing success)
       setTimeout(() => {
         if (onSuccess) {
           onSuccess(uploadedFileData);
         }
       }, 2000);
-      
+
     } catch (error) {
       console.error('Email error:', error);
       setError(error.message || 'Failed to send email');
@@ -220,13 +256,13 @@ const FileUploader = ({ onClose, onSuccess }) => {
   // Simulate progress animation
   useEffect(() => {
     let progressInterval;
-    
+
     if (uploading && progress < 90) {
       progressInterval = setInterval(() => {
         setProgress(prev => Math.min(prev + (10 - prev / 10), 90));
       }, 300);
     }
-    
+
     return () => {
       if (progressInterval) clearInterval(progressInterval);
     };
@@ -234,9 +270,9 @@ const FileUploader = ({ onClose, onSuccess }) => {
 
   const getFileIcon = () => {
     if (!file) return null;
-    
+
     const extension = file.name.split('.').pop().toLowerCase();
-    
+
     switch (extension) {
       case 'pdf':
         return (
@@ -279,7 +315,7 @@ const FileUploader = ({ onClose, onSuccess }) => {
             <h3 className="text-xl font-semibold text-dark-text-primary">
               {showEmailForm ? "Send File by Email" : "Upload File"}
             </h3>
-            <button 
+            <button
               onClick={onClose}
               className="text-dark-text-secondary hover:text-dark-text-primary"
             >
@@ -288,7 +324,7 @@ const FileUploader = ({ onClose, onSuccess }) => {
               </svg>
             </button>
           </div>
-          
+
           {showEmailForm ? (
             // Email Form
             <div className="mt-4">
@@ -400,10 +436,10 @@ const FileUploader = ({ onClose, onSuccess }) => {
           ) : (
             <>
               {/* File Drop Area */}
-              <div 
+              <div
                 className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all duration-300 ${
-                  dragActive 
-                    ? 'border-dark-accent-primary bg-dark-accent-primary/5' 
+                  dragActive
+                    ? 'border-dark-accent-primary bg-dark-accent-primary/5'
                     : 'border-dark-border hover:border-dark-accent-primary/50 hover:bg-dark-bg-primary/30'
                 }`}
                 onDrop={handleDrop}
@@ -411,13 +447,13 @@ const FileUploader = ({ onClose, onSuccess }) => {
                 onDragLeave={handleDragLeave}
                 onClick={() => fileInputRef.current?.click()}
               >
-                <input 
-                  type="file" 
-                  className="hidden" 
-                  onChange={handleFileChange} 
+                <input
+                  type="file"
+                  className="hidden"
+                  onChange={handleFileChange}
                   ref={fileInputRef}
                 />
-                
+
                 {file ? (
                   <div className="py-6">
                     <div className="flex flex-col items-center">
@@ -435,10 +471,10 @@ const FileUploader = ({ onClose, onSuccess }) => {
                     <div className="relative mb-6">
                       <span className="absolute -inset-8 bg-dark-accent-primary rounded-full opacity-20 blur-2xl"></span>
                       <svg className="mx-auto h-16 w-16 text-dark-text-secondary animate-float" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path 
-                          strokeLinecap="round" 
-                          strokeLinejoin="round" 
-                          strokeWidth="1.5" 
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="1.5"
                           d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                         />
                       </svg>
@@ -449,14 +485,14 @@ const FileUploader = ({ onClose, onSuccess }) => {
                   </div>
                 )}
               </div>
-              
+
               {/* Error message */}
               {error && (
                 <div className="mt-4 bg-red-500/10 border border-red-500/20 rounded-lg p-3">
                   <p className="text-red-500 text-sm">{error}</p>
                 </div>
               )}
-              
+
               {/* Upload progress */}
               {uploading && (
                 <div className="mt-6">
@@ -465,14 +501,14 @@ const FileUploader = ({ onClose, onSuccess }) => {
                     <span className="text-sm text-dark-text-secondary">{progress}%</span>
                   </div>
                   <div className="w-full h-2 bg-dark-bg-primary rounded-full overflow-hidden">
-                    <div 
+                    <div
                       className="h-full bg-gradient-to-r from-dark-accent-primary to-blue-500 rounded-full transition-all duration-300"
                       style={{ width: `${progress}%` }}
                     ></div>
                   </div>
                 </div>
               )}
-              
+
               {/* Upload success message */}
               {uploadComplete && !uploading && (
                 <div className="mt-6 flex items-center bg-green-500/10 border border-green-500/20 rounded-lg p-3">
@@ -482,10 +518,10 @@ const FileUploader = ({ onClose, onSuccess }) => {
                   <p className="text-green-500 text-sm">File uploaded successfully!</p>
                 </div>
               )}
-              
+
               {/* Upload button */}
               <div className="mt-6">
-                <button 
+                <button
                   onClick={uploadFile}
                   disabled={!file || uploading || uploadComplete}
                   className={`w-full py-2.5 text-white rounded-lg flex items-center justify-center transition-colors ${
@@ -514,4 +550,4 @@ const FileUploader = ({ onClose, onSuccess }) => {
   );
 };
 
-export default FileUploader; 
+export default FileUploader;
