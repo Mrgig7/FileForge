@@ -11,6 +11,26 @@ const jwt = require('jsonwebtoken');
 const fileUpload = require('express-fileupload');
 require('dotenv').config();
 
+// VERCEL FUNCTION LEVEL CORS FIX - ABSOLUTE HIGHEST PRIORITY
+app.use((req, res, next) => {
+    // Set CORS headers immediately for ALL requests
+    res.header('Access-Control-Allow-Origin', 'https://fileforge-indol.vercel.app');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control');
+    res.header('Access-Control-Expose-Headers', 'Authorization, Content-Length');
+
+    console.log(`🔥 VERCEL CORS headers set for ALL requests: ${req.method} ${req.url} from ${req.headers.origin || 'no-origin'}`);
+
+    // Handle ALL OPTIONS requests immediately
+    if (req.method === 'OPTIONS') {
+        console.log('🔥 VERCEL OPTIONS handled immediately');
+        return res.status(200).end();
+    }
+
+    next();
+});
+
 // EMERGENCY CORS FIX - HIGHEST PRIORITY MIDDLEWARE
 app.use((req, res, next) => {
     const origin = req.headers.origin;
@@ -420,20 +440,35 @@ app.post('/api/test-cors', (req, res) => {
 app.get('/api/deployment-info', (req, res) => {
     const deploymentInfo = {
         timestamp: new Date().toISOString(),
-        corsFixVersion: '2.1',
+        corsFixVersion: '2.2',
         environment: process.env.NODE_ENV || 'unknown',
         allowedClients: process.env.ALLOWED_CLIENTS || 'not set',
         origin: req.headers.origin || 'no origin',
         corsMiddlewareActive: true,
         universalCorsActive: true,
         fileUploadCorsActive: true,
-        errorHandlerActive: true
+        errorHandlerActive: true,
+        vercelLevelCorsActive: true
     };
 
     console.log('Deployment info requested:', deploymentInfo);
 
     res.setHeader('Content-Type', 'application/json');
     res.json(deploymentInfo);
+});
+
+// Simple CORS verification endpoint
+app.get('/api/cors-verify', (req, res) => {
+    console.log('🔥 CORS verification endpoint hit');
+    res.json({
+        success: true,
+        message: 'CORS verification successful',
+        origin: req.headers.origin,
+        corsHeaders: {
+            'access-control-allow-origin': res.getHeader('access-control-allow-origin'),
+            'access-control-allow-credentials': res.getHeader('access-control-allow-credentials')
+        }
+    });
 });
 
 // File upload diagnostic endpoint

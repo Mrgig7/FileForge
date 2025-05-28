@@ -20,7 +20,7 @@ exports.ensureGuest = (req, res, next) => {
 };
 
 // API authentication middleware
-exports.ensureApiAuth = (req, res, next) => {
+exports.ensureApiAuth = async (req, res, next) => {
     // Set headers for better CORS handling
     res.setHeader('Content-Type', 'application/json');
 
@@ -71,82 +71,64 @@ exports.ensureApiAuth = (req, res, next) => {
 
         // Verify token
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fileforge_jwt_secret');
-        console.log('Token verified for user ID:', decoded.id);
+        console.log('Token verified successfully');
+        console.log('Decoded token data:', {
+            id: decoded.id,
+            userId: decoded.userId,
+            email: decoded.email,
+            name: decoded.name
+        });
 
-        // Test account handling - Disabled in production
-        /*
-        if (decoded.email && decoded.email.endsWith('@example.com')) {
-            console.log('Using mock user from token for test account:', decoded.email);
-            req.user = {
-                _id: decoded.id,
-                name: decoded.name || decoded.email.split('@')[0],
-                email: decoded.email
-            };
-            return next();
-        }
-        */
+        // Use async/await for cleaner error handling
+        const findUser = async () => {
+            try {
+                // Try to find user by ID first (use either id or userId from token)
+                const userId = decoded.id || decoded.userId;
 
-        // Find the user by ID - only try to use ObjectId if it's a valid format
-        try {
-            // First try to find by _id
-            User.findById(decoded.id)
-                .then(user => {
+                if (!userId) {
+                    console.log('Auth failed: No user ID in token');
+                    return res.status(401).json({ error: 'Invalid token: missing user ID' });
+                }
+
+                console.log('Looking up user by ID:', userId);
+                let user = await User.findById(userId);
+
+                if (user) {
+                    console.log('User found by ID:', user.email);
+                    req.user = user;
+                    return next();
+                }
+
+                // If not found by ID and we have email, try email lookup
+                if (decoded.email) {
+                    console.log('User not found by ID, trying email lookup:', decoded.email);
+                    user = await User.findOne({ email: decoded.email });
+
                     if (user) {
-                        console.log('User authenticated via JWT:', user.email);
+                        console.log('User found by email:', user.email);
                         req.user = user;
                         return next();
                     }
+                }
 
-                    // If not found by ID, try to find by email
-                    if (decoded.email) {
-                        User.findOne({ email: decoded.email })
-                            .then(userByEmail => {
-                                if (userByEmail) {
-                                    console.log('User authenticated via JWT (email lookup):', userByEmail.email);
-                                    req.user = userByEmail;
-                                    return next();
-                                } else {
-                                    console.log('Auth failed: User not found for ID or email');
-                                    return res.status(401).json({ error: 'User not found' });
-                                }
-                            })
-                            .catch(err => {
-                                console.error('Error finding user by email:', err);
-                                res.status(500).json({ error: 'Server error' });
-                            });
-                    } else {
-                        console.log('Auth failed: User not found for ID:', decoded.id);
-                        return res.status(401).json({ error: 'User not found' });
-                    }
-                })
-                .catch(err => {
-                    console.error('Error finding user by ID:', err);
-
-                    // If ID lookup fails, try by email as fallback
-                    if (decoded.email) {
-                        User.findOne({ email: decoded.email })
-                            .then(userByEmail => {
-                                if (userByEmail) {
-                                    console.log('User authenticated via JWT (email fallback):', userByEmail.email);
-                                    req.user = userByEmail;
-                                    return next();
-                                } else {
-                                    console.log('Auth failed: User not found by email fallback');
-                                    return res.status(401).json({ error: 'User not found' });
-                                }
-                            })
-                            .catch(emailErr => {
-                                console.error('Error in email fallback:', emailErr);
-                                res.status(500).json({ error: 'Server error' });
-                            });
-                    } else {
-                        res.status(500).json({ error: 'Server error' });
-                    }
+                console.log('Auth failed: User not found in database');
+                console.log('Searched for ID:', userId, 'and email:', decoded.email);
+                return res.status(401).json({
+                    error: 'User not found',
+                    details: 'The user associated with this token no longer exists'
                 });
-        } catch (mongoErr) {
-            console.error('MongoDB lookup error:', mongoErr);
-            return res.status(500).json({ error: 'Database error' });
-        }
+
+            } catch (dbError) {
+                console.error('Database error during user lookup:', dbError);
+                return res.status(500).json({
+                    error: 'Database error',
+                    details: 'Unable to verify user credentials'
+                });
+            }
+        };
+
+        // Execute the user lookup
+        await findUser();
     } catch (err) {
         console.error('Token verification error:', err);
 

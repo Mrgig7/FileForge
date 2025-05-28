@@ -201,9 +201,14 @@ router.post('/login', (req, res, next) => {
                     return res.status(500).json({ error: 'Session error' });
                 }
 
-                // Create JWT token
+                // Create JWT token with consistent field naming
                 const token = jwt.sign(
-                    { id: user._id, name: user.name, email: user.email },
+                    {
+                        id: user._id.toString(),
+                        userId: user._id.toString(),
+                        name: user.name,
+                        email: user.email
+                    },
                     process.env.JWT_SECRET || 'fileforge_jwt_secret',
                     { expiresIn: '1d' }
                 );

@@ -7,24 +7,24 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  
+
   useEffect(() => {
     // Check if user is logged in on initial load
     const checkAuth = async () => {
       const storedToken = localStorage.getItem('token');
-      
+
       if (storedToken && storedToken !== 'undefined' && storedToken !== 'null') {
         try {
           console.log('Found token in storage:', storedToken.substring(0, 20) + '...');
           setToken(storedToken);
           setIsAuthenticated(true);
-          
+
           // Try to get user data from localStorage first for immediate display
           try {
             const storedUserInfo = localStorage.getItem('userInfo');
             if (storedUserInfo) {
               let userData = JSON.parse(storedUserInfo);
-              
+
               // Check for saved profile picture URL
               const savedProfilePicUrl = localStorage.getItem('profilePicUrl');
               if (savedProfilePicUrl && (!userData.profilePic || userData.profilePic === '')) {
@@ -33,7 +33,7 @@ export const AuthProvider = ({ children }) => {
                   profilePic: savedProfilePicUrl
                 };
               }
-              
+
               // Cloudinary URLs are already absolute, no need to modify them
               console.log('Loaded user data from localStorage:', userData.email);
               console.log('Profile picture URL:', userData.profilePic);
@@ -42,29 +42,29 @@ export const AuthProvider = ({ children }) => {
           } catch (storageErr) {
             console.error('Error parsing user info from localStorage:', storageErr);
           }
-          
+
           // Optionally fetch fresh user data from the server
           try {
             const userData = await fetchUserData(storedToken);
             if (userData) {
               console.log('Updated user data from server');
-              
+
               // Process the user data
               let processedUserData = { ...userData };
-              
+
               // Check if we need to add the profile pic from localStorage
               const savedProfilePicUrl = localStorage.getItem('profilePicUrl');
               if (savedProfilePicUrl && (!processedUserData.profilePic || processedUserData.profilePic === '')) {
                 processedUserData.profilePic = savedProfilePicUrl;
               }
-              
+
               // Ensure profile picture has absolute URL if it's a relative path
-              if (processedUserData.profilePic && 
-                  !processedUserData.profilePic.startsWith('data:') && 
+              if (processedUserData.profilePic &&
+                  !processedUserData.profilePic.startsWith('data:') &&
                   !processedUserData.profilePic.startsWith('http')) {
                 processedUserData.profilePic = `${window.location.origin}${processedUserData.profilePic}`;
               }
-              
+
               setUser(processedUserData);
               // Update localStorage with fresh data
               localStorage.setItem('userInfo', JSON.stringify(processedUserData));
@@ -91,64 +91,64 @@ export const AuthProvider = ({ children }) => {
         setIsAuthenticated(false);
         setUser(null);
       }
-      
+
       setLoading(false);
     };
-    
+
     checkAuth();
   }, []);
-  
+
   const login = (userData, authToken) => {
     console.log('Logging in user:', userData.email || userData.name);
     console.log('Setting token:', authToken.substring(0, 20) + '...');
-    
+
     // Ensure we have the profile picture in a usable format
     let updatedUserData = {...userData};
-    
+
     // If profile image comes from our Base64 storage, it will be a complete data URL
     if (updatedUserData.profilePic && !updatedUserData.profilePic.startsWith('data:') && !updatedUserData.profilePic.startsWith('http')) {
       // Convert relative URL to absolute URL if it's a server path
       updatedUserData.profilePic = `${window.location.origin}${updatedUserData.profilePic}`;
     }
-    
+
     // Save token to localStorage
     localStorage.setItem('token', authToken);
-    
+
     // Save user info to localStorage for persistence
     localStorage.setItem('userInfo', JSON.stringify(updatedUserData));
-    
+
     // Update state
     setIsAuthenticated(true);
     setToken(authToken);
     setUser(updatedUserData);
   };
-  
+
   const logout = () => {
     console.log('Logging out user');
-    
+
     // Clear all auth data from localStorage
     localStorage.removeItem('token');
     localStorage.removeItem('userInfo');
     localStorage.removeItem('profilePicUrl');
-    
+
     // Reset state
     setIsAuthenticated(false);
     setToken(null);
     setUser(null);
   };
-  
+
   const register = async (name, email, password, confirmPassword) => {
     try {
       console.log('Registering user:', email);
-      
+
       // Get API base URL from environment or fallback to the production URL
       const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fileforge-backend.vercel.app/api';
-      
+
       // Fix URL construction to remove duplication of "api" in the path
       const registerUrl = `${API_BASE_URL}/auth/register`;
-      
+
       console.log('Sending registration request to:', registerUrl);
-      
+
       // Make API call to register endpoint with the correct URL
       const response = await fetch(registerUrl, {
         method: 'POST',
@@ -164,7 +164,7 @@ export const AuthProvider = ({ children }) => {
         }),
         credentials: 'include'
       });
-      
+
       // Check for non-JSON responses first
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
@@ -173,13 +173,13 @@ export const AuthProvider = ({ children }) => {
         console.error(`Received non-JSON response: ${textResponse.substring(0, 100)}...`);
         console.error(`Response URL: ${response.url}`);
         console.error(`Response status: ${response.status} ${response.statusText}`);
-        
+
         return {
           success: false,
           error: `Server returned non-JSON response (${response.status}). Please try again later.`
         };
       }
-      
+
       // Handle non-OK responses
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Registration failed' }));
@@ -188,7 +188,7 @@ export const AuthProvider = ({ children }) => {
           error: errorData.error || 'Registration failed. Please try again.'
         };
       }
-      
+
       const data = await response.json();
       return {
         success: true,
@@ -202,43 +202,43 @@ export const AuthProvider = ({ children }) => {
       };
     }
   };
-  
+
   const updateProfile = async (profileData) => {
     try {
       if (!token) {
         console.error('No token available for profile update');
         throw new Error('Authentication required. Please log in again.');
       }
-      
+
       console.log('Updating profile with token:', token.substring(0, 20) + '...');
-      
+
       // Get API base URL from environment or fallback
       const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fileforge-backend.vercel.app/api';
-      
+
       // Check if we have a profile picture file
       const hasProfilePic = profileData.profilePic instanceof File;
-      
+
       // Use full path with API_BASE_URL, formatted correctly to avoid duplicate /api/
-      const apiEndpoint = API_BASE_URL.endsWith('/api') 
+      const apiEndpoint = API_BASE_URL.endsWith('/api')
         ? `${API_BASE_URL}/auth/user`
         : `${API_BASE_URL}/api/auth/user`;
-        
+
       let requestOptions = {};
-      
+
       if (hasProfilePic) {
         // If we have a profile picture, use FormData instead of JSON
         console.log('Profile update includes file upload');
         const formData = new FormData();
-        
+
         // Add text fields to FormData
         if (profileData.name) formData.append('name', profileData.name);
         if (profileData.email) formData.append('email', profileData.email);
         if (profileData.currentPassword) formData.append('currentPassword', profileData.currentPassword);
         if (profileData.newPassword) formData.append('newPassword', profileData.newPassword);
-        
+
         // Add the profile picture
         formData.append('profilePic', profileData.profilePic);
-        
+
         requestOptions = {
           method: 'PUT',
           headers: {
@@ -261,21 +261,21 @@ export const AuthProvider = ({ children }) => {
           credentials: 'include'
         };
       }
-      
+
       // Make API call to update profile
       const response = await fetch(apiEndpoint, requestOptions);
-      
+
       // For test-login users, simulate a successful profile update
       if (token && token.startsWith('eyJ') && !response.ok) {
         console.log('Using mock profile update for test user');
-        
+
         // Update user data in state with the provided information
         let updatedUser = {
           ...user,
           name: profileData.name || user.name,
           email: profileData.email || user.email
         };
-        
+
         // Handle profile picture for test users
         if (hasProfilePic) {
           // For test users, we'll save the file to localStorage as a data URL
@@ -301,7 +301,7 @@ export const AuthProvider = ({ children }) => {
               console.error('Failed to save data URL to localStorage:', storageErr);
             }
           };
-          
+
           // Return early since we'll update state in the onloadend callback
           return {
             success: true,
@@ -309,49 +309,49 @@ export const AuthProvider = ({ children }) => {
             user: { ...updatedUser, profilePic: 'Loading...' }
           };
         }
-        
+
         setUser(updatedUser);
-        
+
         // Also save to localStorage to persist the updated user data
         try {
           // Check if we already have userInfo in localStorage
           const storedUserInfo = localStorage.getItem('userInfo');
           let parsedUserInfo = storedUserInfo ? JSON.parse(storedUserInfo) : {};
-          
+
           // Update with new data
           parsedUserInfo = { ...parsedUserInfo, ...updatedUser };
           localStorage.setItem('userInfo', JSON.stringify(parsedUserInfo));
-          
+
           console.log('Updated user info saved to localStorage for test user');
         } catch (storageErr) {
           console.error('Failed to save updated user info to localStorage:', storageErr);
         }
-        
+
         return {
           success: true,
           message: 'Profile updated successfully (test user)',
           user: updatedUser
         };
       }
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Failed to update profile' }));
         throw new Error(errorData.error || 'Failed to update profile');
       }
-      
+
       const data = await response.json();
-      
+
       // Update user data in state
       const updatedUser = {
         ...user,
         ...data.user
       };
-      
+
       // If there was a profile pic in the response, ensure it's included
       if (data.user?.profilePic) {
         // Cloudinary URLs are already absolute, no need to modify them
         updatedUser.profilePic = data.user.profilePic;
-        
+
         // Save the profile pic URL to localStorage
         localStorage.setItem('profilePicUrl', data.user.profilePic);
         console.log('Saved profile pic URL to localStorage:', data.user.profilePic);
@@ -363,46 +363,48 @@ export const AuthProvider = ({ children }) => {
         const profilePicUrl = URL.createObjectURL(profileData.profilePic);
         updatedUser.profilePic = profilePicUrl;
       }
-      
+
       setUser(updatedUser);
-      
+
       // Also save to localStorage to persist the updated user data
       try {
         // Check if we already have userInfo in localStorage
         const storedUserInfo = localStorage.getItem('userInfo');
         let parsedUserInfo = storedUserInfo ? JSON.parse(storedUserInfo) : {};
-        
+
         // Update with new data
         parsedUserInfo = { ...parsedUserInfo, ...updatedUser };
         localStorage.setItem('userInfo', JSON.stringify(parsedUserInfo));
-        
+
         console.log('Updated user info saved to localStorage');
       } catch (storageErr) {
         console.error('Failed to save updated user info to localStorage:', storageErr);
       }
-      
+
       return data;
     } catch (error) {
       console.error('Error updating profile:', error);
       throw error;
     }
   };
-  
+
   // Helper function to fetch user data from the server
   const fetchUserData = async (authToken) => {
-    if (!authToken) return null;
-    
+    if (!authToken || authToken === 'undefined' || authToken === 'null') {
+      console.log('No valid token provided to fetchUserData');
+      return null;
+    }
+
     try {
       // Get API base URL from environment or fallback
-      const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fileforge-backend.vercel.app/api';
-      
-      // Use full path with API_BASE_URL, formatted correctly to avoid duplicate /api/
-      const userUrl = API_BASE_URL.endsWith('/api') 
-        ? `${API_BASE_URL}/auth/user`
-        : `${API_BASE_URL}/api/auth/user`;
-        
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fileforge-backend.vercel.app';
+
+      // Construct the user endpoint URL
+      const userUrl = `${API_BASE_URL}/api/auth/user`;
+
       console.log('Fetching user data from:', userUrl);
-      
+      console.log('Using token:', authToken.substring(0, 20) + '...');
+
       const response = await fetch(userUrl, {
         method: 'GET',
         headers: {
@@ -412,22 +414,27 @@ export const AuthProvider = ({ children }) => {
         },
         credentials: 'include'
       });
-      
+
+      console.log('User data response status:', response.status);
+
       // Check for non-JSON responses first
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
         console.error(`Received non-JSON response when fetching user data: Status ${response.status}`);
         const textResponse = await response.text();
-        console.error(`Response text: ${textResponse.substring(0, 100)}...`);
+        console.error(`Response text: ${textResponse.substring(0, 200)}...`);
         throw new Error('Server returned non-JSON response');
       }
-      
+
       if (!response.ok) {
-        throw new Error('Failed to fetch user data');
+        const errorData = await response.json();
+        console.error('Failed to fetch user data:', response.status, errorData);
+        throw new Error(`Failed to fetch user data: ${errorData.error || 'Unknown error'}`);
       }
-      
+
       const data = await response.json();
-      
+      console.log('Successfully fetched user data:', data.email);
+
       // Return the user data including any profile pic
       return {
         id: data.id,
@@ -437,10 +444,19 @@ export const AuthProvider = ({ children }) => {
       };
     } catch (error) {
       console.error('Error fetching user data:', error);
+
+      // If it's a 401 error, the token is invalid
+      if (error.message.includes('401')) {
+        console.log('Token appears to be invalid, clearing auth state');
+        localStorage.removeItem('token');
+        localStorage.removeItem('userInfo');
+        localStorage.removeItem('profilePicUrl');
+      }
+
       return null;
     }
   };
-  
+
   return (
     <AuthContext.Provider
       value={{
@@ -459,4 +475,4 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export default AuthProvider; 
+export default AuthProvider;

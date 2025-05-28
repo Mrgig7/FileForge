@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth Test</title>
+</head>
+<body>
+    <h1>Authentication Test</h1>
+    <div id="results"></div>
+    
+    <script>
+        async function testAuth() {
+            const results = document.getElementById('results');
+            
+            // Get token from localStorage
+            const token = localStorage.getItem('token');
+            results.innerHTML += `<p><strong>Token exists:</strong> ${!!token}</p>`;
+            
+            if (token) {
+                results.innerHTML += `<p><strong>Token preview:</strong> ${token.substring(0, 50)}...</p>`;
+                
+                // Try to decode the JWT (just the payload, not verifying signature)
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    results.innerHTML += `<p><strong>Token payload:</strong> ${JSON.stringify(payload, null, 2)}</p>`;
+                    
+                    // Check if token is expired
+                    const now = Math.floor(Date.now() / 1000);
+                    const isExpired = payload.exp && payload.exp < now;
+                    results.innerHTML += `<p><strong>Token expired:</strong> ${isExpired}</p>`;
+                    
+                } catch (e) {
+                    results.innerHTML += `<p><strong>Error decoding token:</strong> ${e.message}</p>`;
+                }
+                
+                // Test API call
+                try {
+                    const response = await fetch('https://fileforge-backend.vercel.app/api/auth/user', {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        credentials: 'include'
+                    });
+                    
+                    results.innerHTML += `<p><strong>API Response Status:</strong> ${response.status}</p>`;
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        results.innerHTML += `<p><strong>User Data:</strong> ${JSON.stringify(data, null, 2)}</p>`;
+                    } else {
+                        const errorText = await response.text();
+                        results.innerHTML += `<p><strong>API Error:</strong> ${errorText}</p>`;
+                    }
+                } catch (e) {
+                    results.innerHTML += `<p><strong>API Call Error:</strong> ${e.message}</p>`;
+                }
+            }
+        }
+        
+        testAuth();
+    </script>
+</body>
+</html>

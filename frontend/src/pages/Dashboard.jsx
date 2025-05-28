@@ -7,7 +7,7 @@ import FileUploader from '../components/FileUploader';
 import { useNavigate } from 'react-router-dom';
 
 // API base URL from environment or fallback to production URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fileforge-backend.vercel.app/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fileforge-backend.vercel.app';
 
 const Dashboard = () => {
   const [files, setFiles] = useState([]);
@@ -66,12 +66,11 @@ const Dashboard = () => {
       console.log('Using token for dashboard API call:', token ? 'Token exists' : 'No token');
       console.log('Current user in AuthContext:', isAuthenticated ? 'Authenticated' : 'Not authenticated');
 
-      // Construct the dashboard URL using API_BASE_URL
-      const dashboardUrl = API_BASE_URL.endsWith('/api')
-        ? `${API_BASE_URL}/dashboard`
-        : `${API_BASE_URL}/api/dashboard`;
+      // Construct the dashboard URL
+      const dashboardUrl = `${API_BASE_URL}/api/dashboard`;
 
       console.log(`Fetching dashboard data from: ${dashboardUrl}`);
+      console.log(`Using token: ${token.substring(0, 20)}...`);
 
       // Try to fetch files
       let response = await fetch(dashboardUrl, {
@@ -84,12 +83,31 @@ const Dashboard = () => {
         credentials: 'include'
       });
 
+      console.log('Dashboard response status:', response.status);
+
       // If token is invalid, try to refresh authentication
       if (!response.ok && response.status === 401) {
-        console.log('Token authentication failed, attempting to refresh authentication');
+        console.log('Token authentication failed (401)');
 
-        // Redirect to login if authentication fails
-        navigate('/login', { state: { from: '/dashboard', message: 'Session expired. Please login again.' } });
+        // Try to get error details
+        try {
+          const errorData = await response.json();
+          console.log('401 error details:', errorData);
+        } catch (e) {
+          console.log('Could not parse 401 error response');
+        }
+
+        // Clear invalid token and redirect to login
+        localStorage.removeItem('token');
+        localStorage.removeItem('userInfo');
+        localStorage.removeItem('profilePicUrl');
+
+        navigate('/login', {
+          state: {
+            from: '/dashboard',
+            message: 'Session expired. Please login again.'
+          }
+        });
         return;
       }
 

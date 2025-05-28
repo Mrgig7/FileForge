@@ -58,10 +58,15 @@ UserSchema.methods.comparePassword = async function(candidatePassword) {
 // Method to create JWT
 UserSchema.methods.createJWT = function() {
   return jwt.sign(
-    { userId: this._id, name: this.name },
-    process.env.JWT_SECRET,
     {
-      expiresIn: process.env.JWT_LIFETIME
+      id: this._id.toString(),
+      userId: this._id.toString(),
+      name: this.name,
+      email: this.email
+    },
+    process.env.JWT_SECRET || 'fileforge_jwt_secret',
+    {
+      expiresIn: process.env.JWT_LIFETIME || '1d'
     }
   );
 };
