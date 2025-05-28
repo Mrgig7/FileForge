@@ -1,4 +1,5 @@
 import { createContext, useState, useEffect } from 'react';
+import { isTokenExpired, getTokenExpirationDate } from '../utils/tokenUtils';
 
 export const AuthContext = createContext();
 
@@ -8,6 +9,21 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Track if we're currently fetching user data to prevent infinite loops
+  const [isFetchingUserData, setIsFetchingUserData] = useState(false);
+
+  // Function to clear all authentication state
+  const clearAuthState = () => {
+    console.log('Clearing authentication state');
+    localStorage.removeItem('token');
+    localStorage.removeItem('userInfo');
+    localStorage.removeItem('profilePicUrl');
+    setToken(null);
+    setIsAuthenticated(false);
+    setUser(null);
+    setIsFetchingUserData(false); // Reset fetching state
+  };
+
   useEffect(() => {
     // Check if user is logged in on initial load
     const checkAuth = async () => {
@@ -16,6 +32,18 @@ export const AuthProvider = ({ children }) => {
       if (storedToken && storedToken !== 'undefined' && storedToken !== 'null') {
         try {
           console.log('Found token in storage:', storedToken.substring(0, 20) + '...');
+
+          // Check if token is expired before using it
+          if (isTokenExpired(storedToken)) {
+            console.log('Stored token is expired, clearing auth state');
+            const expirationDate = getTokenExpirationDate(storedToken);
+            console.log('Token expired at:', expirationDate);
+            clearAuthState();
+            setLoading(false);
+            return;
+          }
+
+          console.log('Token is valid, setting auth state');
           setToken(storedToken);
           setIsAuthenticated(true);
 
@@ -74,22 +102,12 @@ export const AuthProvider = ({ children }) => {
           }
         } catch (error) {
           console.error('Error loading auth state:', error);
-          // Clear invalid token
-          localStorage.removeItem('token');
-          localStorage.removeItem('userInfo');
-          localStorage.removeItem('profilePicUrl');
-          setToken(null);
-          setIsAuthenticated(false);
-          setUser(null);
+          // Clear invalid token and auth state
+          clearAuthState();
         }
       } else {
         console.log('No valid token in storage');
-        localStorage.removeItem('token');
-        localStorage.removeItem('userInfo');
-        localStorage.removeItem('profilePicUrl');
-        setToken(null);
-        setIsAuthenticated(false);
-        setUser(null);
+        clearAuthState();
       }
 
       setLoading(false);
@@ -125,16 +143,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     console.log('Logging out user');
-
-    // Clear all auth data from localStorage
-    localStorage.removeItem('token');
-    localStorage.removeItem('userInfo');
-    localStorage.removeItem('profilePicUrl');
-
-    // Reset state
-    setIsAuthenticated(false);
-    setToken(null);
-    setUser(null);
+    clearAuthState();
   };
 
   const register = async (name, email, password, confirmPassword) => {
@@ -397,6 +406,14 @@ export const AuthProvider = ({ children }) => {
       return null;
     }
 
+    // Prevent infinite loops by checking if we're already fetching
+    if (isFetchingUserData) {
+      console.log('Already fetching user data, skipping duplicate request');
+      return null;
+    }
+
+    setIsFetchingUserData(true);
+
     try {
       // Get API base URL from environment or fallback
       const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fileforge-backend.vercel.app';
@@ -449,15 +466,21 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Error fetching user data:', error);
 
-      // If it's a 401 error, the token is invalid
-      if (error.message.includes('401')) {
-        console.log('Token appears to be invalid, clearing auth state');
-        localStorage.removeItem('token');
-        localStorage.removeItem('userInfo');
-        localStorage.removeItem('profilePicUrl');
+      // If it's a 401 error or token expired, clear all auth state
+      if (error.message.includes('401') || error.message.includes('Token has expired') || error.message.includes('expired')) {
+        console.log('Token is expired or invalid, clearing all auth state');
+        clearAuthState();
+
+        // Redirect to login page
+        if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+          window.location.href = '/login?message=Session expired. Please login again.';
+        }
       }
 
       return null;
+    } finally {
+      // Always reset the fetching flag
+      setIsFetchingUserData(false);
     }
   };
 

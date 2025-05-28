@@ -26,6 +26,9 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Track if we're already redirecting to prevent infinite loops
+let isRedirecting = false;
+
 // Add response interceptor to handle auth errors
 api.interceptors.response.use(
   (response) => {
@@ -34,18 +37,34 @@ api.interceptors.response.use(
   (error) => {
     console.error('API request failed:', error.response?.status, error.response?.data);
 
-    // If we get a 401, the token is invalid
+    // If we get a 401, the token is invalid or expired
     if (error.response?.status === 401) {
-      console.log('Received 401 - token may be invalid or expired');
+      const errorMessage = error.response?.data?.error || '';
+      console.log('Received 401 - token may be invalid or expired:', errorMessage);
 
-      // Clear invalid token
-      localStorage.removeItem('token');
-      localStorage.removeItem('userInfo');
-      localStorage.removeItem('profilePicUrl');
+      // Check if it's specifically a token expiration
+      if (errorMessage.includes('expired') || errorMessage.includes('Token has expired')) {
+        console.log('Token has expired, clearing auth state');
+      }
 
-      // Redirect to login if we're not already there
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login?message=Session expired. Please login again.';
+      // Clear invalid token (but don't redirect if already redirecting)
+      if (!isRedirecting) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('userInfo');
+        localStorage.removeItem('profilePicUrl');
+
+        // Set flag to prevent multiple redirects
+        isRedirecting = true;
+
+        // Redirect to login if we're not already there
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login?message=Session expired. Please login again.';
+        }
+
+        // Reset flag after a delay
+        setTimeout(() => {
+          isRedirecting = false;
+        }, 1000);
       }
     }
 

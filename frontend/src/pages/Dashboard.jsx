@@ -87,16 +87,23 @@ const Dashboard = () => {
 
       console.log('Dashboard response status:', response.status);
 
-      // If token is invalid, try to refresh authentication
+      // If token is invalid, handle authentication failure
       if (!response.ok && response.status === 401) {
         console.log('Token authentication failed (401)');
 
         // Try to get error details
+        let errorMessage = '';
         try {
           const errorData = await response.json();
           console.log('401 error details:', errorData);
+          errorMessage = errorData.error || '';
         } catch (e) {
           console.log('Could not parse 401 error response');
+        }
+
+        // Check if it's specifically a token expiration
+        if (errorMessage.includes('expired') || errorMessage.includes('Token has expired')) {
+          console.log('Token has expired, clearing auth state and redirecting');
         }
 
         // Clear invalid token and redirect to login
@@ -104,11 +111,13 @@ const Dashboard = () => {
         localStorage.removeItem('userInfo');
         localStorage.removeItem('profilePicUrl');
 
+        // Use navigate instead of window.location to prevent infinite loops
         navigate('/login', {
           state: {
             from: '/dashboard',
             message: 'Session expired. Please login again.'
-          }
+          },
+          replace: true // Replace current history entry to prevent back button issues
         });
         return;
       }
