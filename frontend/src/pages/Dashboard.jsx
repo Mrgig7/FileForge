@@ -66,8 +66,10 @@ const Dashboard = () => {
       console.log('Using token for dashboard API call:', token ? 'Token exists' : 'No token');
       console.log('Current user in AuthContext:', isAuthenticated ? 'Authenticated' : 'Not authenticated');
 
-      // Construct the dashboard URL
-      const dashboardUrl = `${API_BASE_URL}/api/dashboard`;
+      // Construct the dashboard URL - handle both cases where API_BASE_URL may or may not include /api
+      const dashboardUrl = API_BASE_URL.includes('/api')
+        ? `${API_BASE_URL}/dashboard`
+        : `${API_BASE_URL}/api/dashboard`;
 
       console.log(`Fetching dashboard data from: ${dashboardUrl}`);
       console.log(`Using token: ${token.substring(0, 20)}...`);

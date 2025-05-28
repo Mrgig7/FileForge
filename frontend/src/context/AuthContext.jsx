@@ -142,10 +142,12 @@ export const AuthProvider = ({ children }) => {
       console.log('Registering user:', email);
 
       // Get API base URL from environment or fallback to the production URL
-      const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fileforge-backend.vercel.app/api';
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fileforge-backend.vercel.app';
 
-      // Fix URL construction to remove duplication of "api" in the path
-      const registerUrl = `${API_BASE_URL}/auth/register`;
+      // Construct the register URL - handle both cases where API_BASE_URL may or may not include /api
+      const registerUrl = API_BASE_URL.includes('/api')
+        ? `${API_BASE_URL}/auth/register`
+        : `${API_BASE_URL}/api/auth/register`;
 
       console.log('Sending registration request to:', registerUrl);
 
@@ -213,13 +215,13 @@ export const AuthProvider = ({ children }) => {
       console.log('Updating profile with token:', token.substring(0, 20) + '...');
 
       // Get API base URL from environment or fallback
-      const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fileforge-backend.vercel.app/api';
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fileforge-backend.vercel.app';
 
       // Check if we have a profile picture file
       const hasProfilePic = profileData.profilePic instanceof File;
 
-      // Use full path with API_BASE_URL, formatted correctly to avoid duplicate /api/
-      const apiEndpoint = API_BASE_URL.endsWith('/api')
+      // Construct the user endpoint URL - handle both cases where API_BASE_URL may or may not include /api
+      const apiEndpoint = API_BASE_URL.includes('/api')
         ? `${API_BASE_URL}/auth/user`
         : `${API_BASE_URL}/api/auth/user`;
 
@@ -399,8 +401,10 @@ export const AuthProvider = ({ children }) => {
       // Get API base URL from environment or fallback
       const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fileforge-backend.vercel.app';
 
-      // Construct the user endpoint URL
-      const userUrl = `${API_BASE_URL}/api/auth/user`;
+      // Construct the user endpoint URL - handle both cases where API_BASE_URL may or may not include /api
+      const userUrl = API_BASE_URL.includes('/api')
+        ? `${API_BASE_URL}/auth/user`
+        : `${API_BASE_URL}/api/auth/user`;
 
       console.log('Fetching user data from:', userUrl);
       console.log('Using token:', authToken.substring(0, 20) + '...');

@@ -2,9 +2,12 @@ import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fileforge-backend.vercel.app';
 
+// Ensure we have the correct base URL for API calls
+const API_URL = API_BASE_URL.includes('/api') ? API_BASE_URL : `${API_BASE_URL}/api`;
+
 // Create axios instance with default config
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
