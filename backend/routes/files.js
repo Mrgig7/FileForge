@@ -61,6 +61,7 @@ router.post('/', async (req, res) => {
         res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control');
         console.log('🚨 EMERGENCY CORS headers set for file upload:', origin);
     }
+
     console.log('=== FILE UPLOAD REQUEST START ===');
     console.log('Timestamp:', new Date().toISOString());
     console.log('Origin:', req.headers.origin);
@@ -75,38 +76,46 @@ router.post('/', async (req, res) => {
     console.log('Available files:', req.files ? Object.keys(req.files) : 'No files object');
     console.log('Request body keys:', req.body ? Object.keys(req.body) : 'No body');
 
-
-
     try {
         // Check if files are present in the request
-        // The frontend sends the file with the field name 'myfile' in FormData
-        if (!req.files || (!req.files.file && !req.files.myfile)) {
-            console.error('No file in request');
-            console.log('Request body:', req.body);
-            console.log('Request files:', req.files);
+        if (!req.files) {
+            console.error('No files object in request');
+            return res.status(400).json({
+                error: 'No file data received',
+                debug: {
+                    contentType: req.headers['content-type'],
+                    bodyKeys: Object.keys(req.body || {}),
+                    hasFiles: false
+                }
+            });
+        }
+
+        // Try to get the file from 'myfile' field
+        const file = req.files.myfile;
+
+        if (!file) {
+            console.error('No file found in request.files.myfile');
+            console.log('Available files:', Object.keys(req.files));
             return res.status(400).json({
                 error: 'No file uploaded. Please select a file.',
                 debug: {
-                    filesExists: !!req.files,
-                    availableFields: req.files ? Object.keys(req.files) : [],
+                    filesExists: true,
+                    availableFields: Object.keys(req.files),
                     bodyFields: Object.keys(req.body || {}),
                     contentType: req.headers['content-type']
                 }
             });
         }
 
-        // Try to get the file from either 'file' or 'myfile' field
-        const file = req.files.file || req.files.myfile;
-
         // Validate file object
-        if (!file || !file.name || !file.size) {
+        if (!file.name || !file.size) {
             console.error('Invalid file object:', file);
             return res.status(400).json({
                 error: 'Invalid file data received.',
                 debug: {
-                    hasFile: !!file,
-                    fileName: file ? file.name : 'N/A',
-                    fileSize: file ? file.size : 'N/A'
+                    hasFile: true,
+                    fileName: file.name || 'N/A',
+                    fileSize: file.size || 'N/A'
                 }
             });
         }
@@ -117,17 +126,14 @@ router.post('/', async (req, res) => {
             mimetype: file.mimetype,
             tempFilePath: file.tempFilePath
         });
-        console.log('File received:', file.name, 'Size:', file.size);
 
         // Determine user ID from authentication
         let userId = null;
         if (req.isAuthenticated()) {
-            // User is authenticated via session
             userId = req.user._id;
             console.log('User authenticated via session, ID:', userId);
         } else if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
             try {
-                // Extract and verify JWT token
                 const token = req.headers.authorization.split(' ')[1];
                 const jwt = require('jsonwebtoken');
                 const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fileforge_jwt_secret');
@@ -135,7 +141,6 @@ router.post('/', async (req, res) => {
                 console.log('User authenticated via JWT, ID:', userId);
             } catch (error) {
                 console.error('JWT verification failed:', error);
-                // Continue without user association
             }
         }
 
@@ -155,7 +160,7 @@ router.post('/', async (req, res) => {
         // Save file info to database
         const fileRecord = new File({
             filename: uniqueName,
-            originalName: file.name, // Store the original filename
+            originalName: file.name,
             uuid: uuid4(),
             path: filePath,
             size: file.size,
@@ -184,7 +189,6 @@ router.post('/', async (req, res) => {
         console.error('Error name:', error.name);
         console.error('Error message:', error.message);
 
-        // Provide detailed error response for debugging
         return res.status(500).json({
             error: error.message || 'Error uploading file',
             debug: {

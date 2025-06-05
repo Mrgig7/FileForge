@@ -52,6 +52,15 @@ export const fileApi = {
 
   // Upload a file
   uploadFile: async (formData) => {
+    // Ensure the file is being sent with the correct field name
+    if (!formData.get('myfile')) {
+      const file = formData.get('file');
+      if (file) {
+        formData.delete('file');
+        formData.append('myfile', file);
+      }
+    }
+    
     const response = await api.post('/files', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
