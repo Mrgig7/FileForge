@@ -333,7 +333,7 @@ app.post('/api/test-cors', (req, res) => {
 app.get('/api/deployment-info', (req, res) => {
     const deploymentInfo = {
         timestamp: new Date().toISOString(),
-        corsFixVersion: '3.2',
+        corsFixVersion: '3.3',
         environment: process.env.NODE_ENV || 'unknown',
         allowedClients: process.env.ALLOWED_CLIENTS || 'not set',
         origin: req.headers.origin || 'no origin',
@@ -345,7 +345,9 @@ app.get('/api/deployment-info', (req, res) => {
         apiRouteProtection: true,
         staticFileConflictFixed: true,
         emergencyCorsForFileUpload: true,
-        authenticationTemporarilyRemoved: true
+        authenticationTemporarilyRemoved: true,
+        backendOnlyMode: true,
+        staticFileServingDisabled: true
     };
 
     console.log('Deployment info requested:', deploymentInfo);
@@ -506,32 +508,30 @@ app.get('/files/download/:uuid', async (req, res) => {
 });
 
 // In development, serve React app from Vite dev server
-// In production, serve the built React app
+// In production, this is a backend-only API server
+// Frontend is deployed separately on Vercel
 if (process.env.NODE_ENV === 'production') {
-    // Serve static files from React build folder, but NOT for API routes
-    app.use(express.static(path.join(__dirname, '../frontend/dist'), {
-        index: false, // Don't serve index.html for directory requests
-        fallthrough: true // Allow other middleware to handle if file not found
-    }));
-
-    // For any NON-API route that doesn't match, serve the React app
-    app.get('*', (req, res, next) => {
-        // Skip serving React app for API routes
+    // Only serve static files for non-API routes and only if they exist
+    app.use((req, res, next) => {
+        // Skip all static file serving for API routes
         if (req.url.startsWith('/api/')) {
             return next();
         }
 
-        // Check if the file exists before serving
-        const filePath = path.join(__dirname, '../frontend/dist/index.html');
-        if (require('fs').existsSync(filePath)) {
-            res.sendFile(filePath);
-        } else {
-            // If React build doesn't exist, return a simple message
-            res.status(404).json({
-                error: 'Frontend build not found',
-                message: 'This is a backend API server. Frontend should be deployed separately.'
-            });
-        }
+        // For non-API routes, return a simple API info message
+        res.status(200).json({
+            message: 'FileForge Backend API Server',
+            version: '3.2',
+            status: 'running',
+            frontend: 'https://fileforge-indol.vercel.app',
+            api: 'https://fileforge-backend.vercel.app/api',
+            endpoints: {
+                'GET /api/deployment-info': 'Deployment information',
+                'POST /api/files': 'File upload',
+                'GET /api/files/:uuid': 'File download',
+                'POST /api/auth/login': 'User authentication'
+            }
+        });
     });
 }
 
