@@ -144,15 +144,19 @@ router.post('/', async (req, res) => {
 
         // Generate a unique filename
         const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1E9)}${path.extname(file.name)}`;
-        const filePath = path.join(__dirname, '../uploads/', uniqueName);
 
-        // Ensure uploads directory exists
-        const uploadsDir = path.join(__dirname, '../uploads');
+        // Use /tmp directory for Vercel serverless environment
+        const uploadsDir = '/tmp/uploads';
+        const filePath = path.join(uploadsDir, uniqueName);
+
+        // Ensure uploads directory exists in /tmp
         if (!fs.existsSync(uploadsDir)) {
             fs.mkdirSync(uploadsDir, { recursive: true });
+            console.log('Created uploads directory:', uploadsDir);
         }
 
         // Move the file to uploads directory
+        console.log('Moving file to:', filePath);
         await file.mv(filePath);
 
         // Save file info to database

@@ -310,7 +310,7 @@ app.post('/api/test-cors', (req, res) => {
 app.get('/api/deployment-info', (req, res) => {
     const deploymentInfo = {
         timestamp: new Date().toISOString(),
-        corsFixVersion: '3.7',
+        corsFixVersion: '3.8',
         environment: process.env.NODE_ENV || 'unknown',
         allowedClients: process.env.ALLOWED_CLIENTS || 'not set',
         origin: req.headers.origin || 'no origin',
@@ -330,7 +330,8 @@ app.get('/api/deployment-info', (req, res) => {
         multerConflictFixed: true,
         enhancedDebugging: true,
         vercelTempDirFixed: true,
-        optionsHandlerAdded: true
+        optionsHandlerAdded: true,
+        vercelUploadsDirFixed: true
     };
 
     console.log('Deployment info requested:', deploymentInfo);
