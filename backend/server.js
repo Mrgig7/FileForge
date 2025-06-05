@@ -11,35 +11,25 @@ const jwt = require('jsonwebtoken');
 const fileUpload = require('express-fileupload');
 require('dotenv').config();
 
-// VERCEL FUNCTION LEVEL CORS FIX - ABSOLUTE HIGHEST PRIORITY
-app.use((req, res, next) => {
-    // Set CORS headers immediately for ALL requests
-    res.header('Access-Control-Allow-Origin', 'https://fileforge-indol.vercel.app');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control');
-    res.header('Access-Control-Expose-Headers', 'Authorization, Content-Length');
-
-    console.log(`🔥 VERCEL CORS headers set for ALL requests: ${req.method} ${req.url} from ${req.headers.origin || 'no-origin'}`);
-
-    // Handle ALL OPTIONS requests immediately
-    if (req.method === 'OPTIONS') {
-        console.log('🔥 VERCEL OPTIONS handled immediately');
-        return res.status(200).end();
-    }
-
-    next();
-});
-
-// EMERGENCY CORS FIX - HIGHEST PRIORITY MIDDLEWARE
+// UNIVERSAL CORS MIDDLEWARE - HIGHEST PRIORITY
 app.use((req, res, next) => {
     const origin = req.headers.origin;
     const allowedOrigins = [
         'https://fileforge-indol.vercel.app',
         'https://fileforge-react.vercel.app',
-        'http://localhost:5173'
+        'http://localhost:5173',
+        'http://localhost:3000'
     ];
 
+    // Add environment-based origins
+    if (process.env.ALLOWED_CLIENTS) {
+        const envOrigins = process.env.ALLOWED_CLIENTS.split(',');
+        envOrigins.forEach(envOrigin => {
+            allowedOrigins.push(envOrigin.trim().replace(/\/$/, ''));
+        });
+    }
+
+    // Set CORS headers for allowed origins
     if (!origin || allowedOrigins.includes(origin)) {
         res.header('Access-Control-Allow-Origin', origin || 'https://fileforge-indol.vercel.app');
         res.header('Access-Control-Allow-Credentials', 'true');
@@ -47,44 +37,19 @@ app.use((req, res, next) => {
         res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control');
         res.header('Access-Control-Expose-Headers', 'Authorization, Content-Length');
 
-        console.log(`🚨 EMERGENCY CORS headers set for origin: ${origin || 'no-origin'} - ${req.method} ${req.url}`);
+        console.log(`🔥 CORS headers set for: ${req.method} ${req.url} from ${origin || 'no-origin'}`);
     }
 
     // Handle preflight requests immediately
     if (req.method === 'OPTIONS') {
-        console.log('🚨 EMERGENCY preflight handled');
+        console.log('🔥 OPTIONS request handled immediately');
         return res.status(200).end();
     }
 
     next();
 });
 
-// CRITICAL: Error handler that preserves CORS headers
-app.use((err, req, res, next) => {
-    const origin = req.headers.origin;
-    const allowedOrigins = [
-        'https://fileforge-indol.vercel.app',
-        'https://fileforge-react.vercel.app',
-        'http://localhost:5173'
-    ];
 
-    // Ensure CORS headers are set even for errors
-    if (!origin || allowedOrigins.includes(origin)) {
-        res.header('Access-Control-Allow-Origin', origin || 'https://fileforge-indol.vercel.app');
-        res.header('Access-Control-Allow-Credentials', 'true');
-        res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
-        res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control');
-
-        console.log(`🚨 ERROR CORS headers set for origin: ${origin || 'no-origin'} - Error: ${err.message}`);
-    }
-
-    console.error('🚨 Server Error with CORS headers:', err);
-    res.status(500).json({
-        error: 'Internal Server Error',
-        message: err.message,
-        corsHeadersSet: true
-    });
-});
 
 // CORS - Move this up to be one of the first middleware
 const corsOptions = {
@@ -143,88 +108,9 @@ app.use(cors(corsOptions));
 // Additional CORS handling for preflight requests
 app.options('*', cors(corsOptions));
 
-// Emergency CORS fix - Add universal CORS headers for all requests
-app.use((req, res, next) => {
-    const origin = req.headers.origin;
 
-    // List of allowed origins
-    const allowedOrigins = [
-        'https://fileforge-indol.vercel.app',
-        'https://fileforge-react.vercel.app',
-        'https://file-forge-react.vercel.app',
-        'http://localhost:5173',
-        'http://127.0.0.1:5173'
-    ];
 
-    // Add environment variable origins
-    if (process.env.ALLOWED_CLIENTS) {
-        const envOrigins = process.env.ALLOWED_CLIENTS.split(',');
-        envOrigins.forEach(envOrigin => {
-            allowedOrigins.push(envOrigin.trim().replace(/\/$/, ''));
-        });
-    }
 
-    // Set CORS headers for allowed origins
-    if (!origin || allowedOrigins.includes(origin)) {
-        res.header('Access-Control-Allow-Origin', origin || 'https://fileforge-indol.vercel.app');
-        res.header('Access-Control-Allow-Credentials', 'true');
-        res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
-        res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, X-File-Name, X-File-Size, X-File-Type');
-        res.header('Access-Control-Expose-Headers', 'Authorization, Content-Length');
-
-        console.log(`Universal CORS headers set for origin: ${origin || 'no-origin'}`);
-    }
-
-    // Handle preflight requests immediately
-    if (req.method === 'OPTIONS') {
-        console.log('Handling universal preflight request');
-        return res.status(200).end();
-    }
-
-    next();
-});
-
-// Special CORS handling for file upload routes
-app.use('/api/files', (req, res, next) => {
-    // Set CORS headers explicitly for file upload routes
-    const origin = req.headers.origin;
-    const allowedOrigins = [
-        'http://127.0.0.1:5173',
-        'http://localhost:5173',
-        'http://localhost:3000',
-        'https://fileforge-react.vercel.app',
-        'https://file-forge-react.vercel.app',
-        'https://fileforge-backend.vercel.app',
-        'https://fileforge-indol.vercel.app'
-    ];
-
-    if (process.env.ALLOWED_CLIENTS) {
-        const envOrigins = process.env.ALLOWED_CLIENTS.split(',');
-        envOrigins.forEach(envOrigin => {
-            allowedOrigins.push(envOrigin.trim().replace(/\/$/, ''));
-        });
-    }
-
-    if (!origin || allowedOrigins.includes(origin)) {
-        res.header('Access-Control-Allow-Origin', origin || '*');
-        res.header('Access-Control-Allow-Credentials', 'true');
-        res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
-        res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, X-File-Name, X-File-Size, X-File-Type');
-        res.header('Access-Control-Expose-Headers', 'Authorization, Content-Length');
-
-        console.log(`File upload CORS headers set for origin: ${origin}`);
-    } else {
-        console.log(`File upload CORS blocked for origin: ${origin}`);
-    }
-
-    // Handle preflight requests
-    if (req.method === 'OPTIONS') {
-        console.log('Handling preflight request for file upload');
-        return res.status(200).end();
-    }
-
-    next();
-});
 
 // Middleware
 app.use((req, res, next) => {
@@ -440,15 +326,15 @@ app.post('/api/test-cors', (req, res) => {
 app.get('/api/deployment-info', (req, res) => {
     const deploymentInfo = {
         timestamp: new Date().toISOString(),
-        corsFixVersion: '2.2',
+        corsFixVersion: '3.0',
         environment: process.env.NODE_ENV || 'unknown',
         allowedClients: process.env.ALLOWED_CLIENTS || 'not set',
         origin: req.headers.origin || 'no origin',
         corsMiddlewareActive: true,
         universalCorsActive: true,
-        fileUploadCorsActive: true,
+        fileModelFixed: true,
         errorHandlerActive: true,
-        vercelLevelCorsActive: true
+        simplifiedCorsConfig: true
     };
 
     console.log('Deployment info requested:', deploymentInfo);
@@ -619,6 +505,42 @@ if (process.env.NODE_ENV === 'production') {
         res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
     });
 }
+
+// Error handler that preserves CORS headers - MUST BE LAST
+app.use((err, req, res, next) => {
+    const origin = req.headers.origin;
+    const allowedOrigins = [
+        'https://fileforge-indol.vercel.app',
+        'https://fileforge-react.vercel.app',
+        'http://localhost:5173',
+        'http://localhost:3000'
+    ];
+
+    // Add environment-based origins
+    if (process.env.ALLOWED_CLIENTS) {
+        const envOrigins = process.env.ALLOWED_CLIENTS.split(',');
+        envOrigins.forEach(envOrigin => {
+            allowedOrigins.push(envOrigin.trim().replace(/\/$/, ''));
+        });
+    }
+
+    // Ensure CORS headers are set even for errors
+    if (!origin || allowedOrigins.includes(origin)) {
+        res.header('Access-Control-Allow-Origin', origin || 'https://fileforge-indol.vercel.app');
+        res.header('Access-Control-Allow-Credentials', 'true');
+        res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
+        res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control');
+
+        console.log(`🚨 ERROR CORS headers set for origin: ${origin || 'no-origin'} - Error: ${err.message}`);
+    }
+
+    console.error('🚨 Server Error with CORS headers:', err);
+    res.status(500).json({
+        error: 'Internal Server Error',
+        message: err.message,
+        corsHeadersSet: true
+    });
+});
 
 // Start server
 app.listen(PORT, () => {

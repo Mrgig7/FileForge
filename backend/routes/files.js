@@ -38,13 +38,7 @@ router.post('/', ensureApiAuth, async (req, res) => {
     console.log('Available files:', req.files ? Object.keys(req.files) : 'No files object');
     console.log('Request body keys:', req.body ? Object.keys(req.body) : 'No body');
 
-    // Set CORS headers immediately for this route
-    const origin = req.headers.origin;
-    if (origin === 'https://fileforge-indol.vercel.app') {
-        res.header('Access-Control-Allow-Origin', origin);
-        res.header('Access-Control-Allow-Credentials', 'true');
-        console.log('🔧 File upload route CORS headers set for:', origin);
-    }
+
 
     try {
         // Check if files are present in the request
@@ -58,13 +52,28 @@ router.post('/', ensureApiAuth, async (req, res) => {
                 debug: {
                     filesExists: !!req.files,
                     availableFields: req.files ? Object.keys(req.files) : [],
-                    bodyFields: Object.keys(req.body || {})
+                    bodyFields: Object.keys(req.body || {}),
+                    contentType: req.headers['content-type']
                 }
             });
         }
 
         // Try to get the file from either 'file' or 'myfile' field
         const file = req.files.file || req.files.myfile;
+
+        // Validate file object
+        if (!file || !file.name || !file.size) {
+            console.error('Invalid file object:', file);
+            return res.status(400).json({
+                error: 'Invalid file data received.',
+                debug: {
+                    hasFile: !!file,
+                    fileName: file ? file.name : 'N/A',
+                    fileSize: file ? file.size : 'N/A'
+                }
+            });
+        }
+
         console.log('File found:', {
             name: file.name,
             size: file.size,
@@ -109,10 +118,10 @@ router.post('/', ensureApiAuth, async (req, res) => {
         // Save file info to database
         const fileRecord = new File({
             filename: uniqueName,
+            originalName: file.name, // Store the original filename
             uuid: uuid4(),
             path: filePath,
             size: file.size,
-            originalName: file.name,
             userId: userId
         });
 
