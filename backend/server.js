@@ -207,6 +207,13 @@ app.use(fileUpload({
 const connectDB = require('./config/db');
 connectDB();
 
+// Protect API routes from static file serving
+app.use('/api/*', (req, res, next) => {
+    // Ensure API routes are never served as static files
+    console.log(`🔥 API route accessed: ${req.method} ${req.url}`);
+    next();
+});
+
 // API Routes - IMPORTANT: Keep these routes BEFORE static file middleware
 // Create a simple test route to verify API is working
 app.post('/api/test-auth', (req, res) => {
@@ -326,7 +333,7 @@ app.post('/api/test-cors', (req, res) => {
 app.get('/api/deployment-info', (req, res) => {
     const deploymentInfo = {
         timestamp: new Date().toISOString(),
-        corsFixVersion: '3.0',
+        corsFixVersion: '3.1',
         environment: process.env.NODE_ENV || 'unknown',
         allowedClients: process.env.ALLOWED_CLIENTS || 'not set',
         origin: req.headers.origin || 'no origin',
@@ -334,7 +341,9 @@ app.get('/api/deployment-info', (req, res) => {
         universalCorsActive: true,
         fileModelFixed: true,
         errorHandlerActive: true,
-        simplifiedCorsConfig: true
+        simplifiedCorsConfig: true,
+        apiRouteProtection: true,
+        staticFileConflictFixed: true
     };
 
     console.log('Deployment info requested:', deploymentInfo);
@@ -497,12 +506,30 @@ app.get('/files/download/:uuid', async (req, res) => {
 // In development, serve React app from Vite dev server
 // In production, serve the built React app
 if (process.env.NODE_ENV === 'production') {
-    // Serve static files from React build folder
-    app.use(express.static(path.join(__dirname, '../frontend/dist')));
+    // Serve static files from React build folder, but NOT for API routes
+    app.use(express.static(path.join(__dirname, '../frontend/dist'), {
+        index: false, // Don't serve index.html for directory requests
+        fallthrough: true // Allow other middleware to handle if file not found
+    }));
 
-    // For any route that doesn't match the API routes, serve the React app
-    app.get('*', (req, res) => {
-        res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+    // For any NON-API route that doesn't match, serve the React app
+    app.get('*', (req, res, next) => {
+        // Skip serving React app for API routes
+        if (req.url.startsWith('/api/')) {
+            return next();
+        }
+
+        // Check if the file exists before serving
+        const filePath = path.join(__dirname, '../frontend/dist/index.html');
+        if (require('fs').existsSync(filePath)) {
+            res.sendFile(filePath);
+        } else {
+            // If React build doesn't exist, return a simple message
+            res.status(404).json({
+                error: 'Frontend build not found',
+                message: 'This is a backend API server. Frontend should be deployed separately.'
+            });
+        }
     });
 }
 
