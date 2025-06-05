@@ -1,5 +1,4 @@
 const router = require('express').Router();
-const multer = require('multer');
 const path = require('path');
 const File = require('../models/file');
 const { v4: uuid4 } = require('uuid');
@@ -7,18 +6,8 @@ const { ensureApiAuth } = require('../middleware/auth');
 const fs = require('fs');
 const nodemailer = require('nodemailer');
 
-let storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, 'uploads/'),
-    filename: (req, file, cb) => {
-        const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1E9)}${path.extname(file.originalname)}`;
-        cb(null, uniqueName);
-    }
-})
-
-let upload = multer({
-    storage,
-    limits: { fileSize: 1000000 * 100 },
-}).single('myfile');
+// Note: Using express-fileupload middleware from server.js
+// No need for multer configuration here
 
 // Handle CORS preflight requests for file upload
 router.options('/', (req, res) => {
@@ -75,6 +64,15 @@ router.post('/', async (req, res) => {
     console.log('Files object type:', typeof req.files);
     console.log('Available files:', req.files ? Object.keys(req.files) : 'No files object');
     console.log('Request body keys:', req.body ? Object.keys(req.body) : 'No body');
+    console.log('Express-fileupload middleware working:', !!req.files);
+    console.log('Raw req.files object:', req.files);
+
+    // Additional debugging for multipart data
+    if (req.headers['content-type'] && req.headers['content-type'].includes('multipart/form-data')) {
+        console.log('✅ Multipart form data detected');
+    } else {
+        console.log('❌ NOT multipart form data - Content-Type:', req.headers['content-type']);
+    }
 
     try {
         // Check if files are present in the request
