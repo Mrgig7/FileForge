@@ -170,13 +170,14 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// File upload middleware
+// File upload middleware - Optimized for Vercel serverless
 app.use(fileUpload({
     limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max file size
     abortOnLimit: true,
     createParentPath: true,
     useTempFiles: true,
-    tempFileDir: path.join(__dirname, 'tmp')
+    tempFileDir: '/tmp', // Use system temp directory for Vercel
+    debug: process.env.NODE_ENV !== 'production' // Enable debug in development
 }));
 
 // Database connection
@@ -309,7 +310,7 @@ app.post('/api/test-cors', (req, res) => {
 app.get('/api/deployment-info', (req, res) => {
     const deploymentInfo = {
         timestamp: new Date().toISOString(),
-        corsFixVersion: '3.5',
+        corsFixVersion: '3.6',
         environment: process.env.NODE_ENV || 'unknown',
         allowedClients: process.env.ALLOWED_CLIENTS || 'not set',
         origin: req.headers.origin || 'no origin',
@@ -327,7 +328,8 @@ app.get('/api/deployment-info', (req, res) => {
         emergencyAlwaysSetCors: true,
         multerConflictFixed: true,
         multerConflictFixed: true,
-        enhancedDebugging: true
+        enhancedDebugging: true,
+        vercelTempDirFixed: true
     };
 
     console.log('Deployment info requested:', deploymentInfo);
@@ -355,9 +357,14 @@ app.post('/api/files/test-upload', (req, res) => {
     console.log('=== FILE UPLOAD DIAGNOSTIC TEST ===');
     console.log('Origin:', req.headers.origin);
     console.log('Content-Type:', req.headers['content-type']);
+    console.log('Content-Length:', req.headers['content-length']);
     console.log('Authorization:', req.headers.authorization ? 'Present' : 'Missing');
-    console.log('Files object:', !!req.files);
-    console.log('Body object:', !!req.body);
+    console.log('Files object exists:', !!req.files);
+    console.log('Files object type:', typeof req.files);
+    console.log('Files object keys:', req.files ? Object.keys(req.files) : 'No files');
+    console.log('Body object exists:', !!req.body);
+    console.log('Body object keys:', req.body ? Object.keys(req.body) : 'No body');
+    console.log('Raw req.files:', req.files);
 
     // Set CORS headers explicitly
     const origin = req.headers.origin;
@@ -371,9 +378,13 @@ app.post('/api/files/test-upload', (req, res) => {
         success: true,
         message: 'File upload test endpoint working',
         hasFiles: !!req.files,
+        filesKeys: req.files ? Object.keys(req.files) : [],
         hasBody: !!req.body,
+        bodyKeys: req.body ? Object.keys(req.body) : [],
         contentType: req.headers['content-type'],
-        corsHeadersSet: true
+        contentLength: req.headers['content-length'],
+        corsHeadersSet: true,
+        expressFileUploadWorking: !!req.files
     });
 });
 
