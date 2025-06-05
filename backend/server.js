@@ -17,7 +17,7 @@ app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', 'https://fileforge-indol.vercel.app');
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, X-File-Name, X-File-Size, X-File-Type');
     res.header('Access-Control-Expose-Headers', 'Authorization, Content-Length');
 
     console.log(`🚨 EMERGENCY CORS headers ALWAYS set for: ${req.method} ${req.url} from ${req.headers.origin || 'no-origin'}`);
@@ -31,9 +31,7 @@ app.use((req, res, next) => {
     next();
 });
 
-
-
-// CORS - Move this up to be one of the first middleware
+// CORS configuration
 const corsOptions = {
     origin: function(origin, callback) {
         const allowedOrigins = [
@@ -78,21 +76,17 @@ const corsOptions = {
         'X-File-Size',
         'X-File-Type'
     ],
-    exposedHeaders: ['Authorization', 'Content-Length', 'X-Foo', 'X-Bar'],
+    exposedHeaders: ['Authorization', 'Content-Length'],
     credentials: true,
     optionsSuccessStatus: 200,
     preflightContinue: false
-}
+};
 
 // Apply CORS middleware
 app.use(cors(corsOptions));
 
 // Additional CORS handling for preflight requests
 app.options('*', cors(corsOptions));
-
-
-
-
 
 // Middleware
 app.use((req, res, next) => {

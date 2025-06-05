@@ -1,5 +1,6 @@
 import { useState, useRef, useContext, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { fileApi } from '../services/api';
 
 // API base URL from environment or fallback to production URL
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fileforge-backend.vercel.app/api';
@@ -22,7 +23,7 @@ const FileUploader = ({ onClose, onSuccess }) => {
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const fileInputRef = useRef(null);
-  const { token, user } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -84,7 +85,6 @@ const FileUploader = ({ onClose, onSuccess }) => {
     // Add user ID to the form data if available
     if (user && user.id) {
       formData.append('userId', user.id);
-      console.log('Adding user ID to upload request:', user.id);
     }
 
     setUploading(true);
@@ -92,66 +92,8 @@ const FileUploader = ({ onClose, onSuccess }) => {
     setUploadComplete(false);
 
     try {
-      // Get token from localStorage if not provided via context
-      const authToken = token || localStorage.getItem('token');
-
-      console.log('Uploading file with auth token:', authToken ? 'Present' : 'Not present');
-      console.log('User context:', user ? `User ${user.email}` : 'No user in context');
-
-      // Create headers object
-      const headers = {};
-
-      if (authToken && authToken !== 'undefined' && authToken !== 'null') {
-        headers['Authorization'] = `Bearer ${authToken}`;
-        console.log('Authorization header set correctly');
-      } else {
-        console.log('No valid auth token available for upload');
-      }
-
-      console.log('Upload headers:', Object.keys(headers));
-      console.log('Uploading file:', file.name, formatBytes(file.size));
-
-      // Construct the upload URL using API_BASE_URL
-      const uploadUrl = API_BASE_URL.endsWith('/api')
-        ? `${API_BASE_URL}/files`
-        : `${API_BASE_URL}/api/files`;
-
-      console.log(`Uploading file to: ${uploadUrl}`);
-
-      // Make the upload request to the correct backend URL
-      const response = await fetch(uploadUrl, {
-        method: 'POST',
-        body: formData,
-        headers,
-        credentials: 'include'
-      });
-
-      console.log('Upload response status:', response.status);
-      console.log('Upload response headers:', Object.fromEntries([...response.headers]));
-
-      // Handle non-JSON responses (like 405 errors)
-      const contentType = response.headers.get('content-type');
-      let data;
-
-      if (contentType && contentType.includes('application/json')) {
-        try {
-          data = await response.json();
-          console.log('Upload response data:', data);
-        } catch (jsonError) {
-          console.error('JSON parsing error:', jsonError);
-          throw new Error('Server returned invalid JSON response');
-        }
-      } else {
-        // Handle non-JSON responses
-        const textResponse = await response.text();
-        console.error('Non-JSON response:', textResponse);
-        throw new Error(`Server error: ${response.status} ${response.statusText}`);
-      }
-
-      if (!response.ok) {
-        throw new Error(data?.error || `Upload failed: ${response.status} ${response.statusText}`);
-      }
-
+      const data = await fileApi.uploadFile(formData);
+      
       setFile(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -176,7 +118,7 @@ const FileUploader = ({ onClose, onSuccess }) => {
 
     } catch (error) {
       console.error('Upload error:', error);
-      setError(error.message || 'Failed to upload file');
+      setError(error.response?.data?.error || error.message || 'Failed to upload file');
     } finally {
       setTimeout(() => {
         setUploading(false);
@@ -202,32 +144,11 @@ const FileUploader = ({ onClose, onSuccess }) => {
     setError('');
 
     try {
-      // Construct the email URL using API_BASE_URL
-      const emailUrl = API_BASE_URL.endsWith('/api')
-        ? `${API_BASE_URL}/files/send`
-        : `${API_BASE_URL}/api/files/send`;
-
-      console.log(`Sending email via: ${emailUrl}`);
-
-      const response = await fetch(emailUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          ...emailData,
-          uuid: uploadedFileData.uuid,
-          emailTo: emailData.to,
-          emailFrom: emailData.from
-        })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to send email');
-      }
+      await fileApi.sendFile(
+        uploadedFileData.uuid,
+        emailData.to,
+        emailData.from
+      );
 
       setEmailSent(true);
 
@@ -240,7 +161,7 @@ const FileUploader = ({ onClose, onSuccess }) => {
 
     } catch (error) {
       console.error('Email error:', error);
-      setError(error.message || 'Failed to send email');
+      setError(error.response?.data?.error || error.message || 'Failed to send email');
     } finally {
       setSendingEmail(false);
     }
