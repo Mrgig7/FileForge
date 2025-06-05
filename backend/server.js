@@ -11,38 +11,20 @@ const jwt = require('jsonwebtoken');
 const fileUpload = require('express-fileupload');
 require('dotenv').config();
 
-// UNIVERSAL CORS MIDDLEWARE - HIGHEST PRIORITY
+// EMERGENCY CORS MIDDLEWARE - ABSOLUTE HIGHEST PRIORITY
 app.use((req, res, next) => {
-    const origin = req.headers.origin;
-    const allowedOrigins = [
-        'https://fileforge-indol.vercel.app',
-        'https://fileforge-react.vercel.app',
-        'http://localhost:5173',
-        'http://localhost:3000'
-    ];
+    // ALWAYS set CORS headers for the specific frontend domain
+    res.header('Access-Control-Allow-Origin', 'https://fileforge-indol.vercel.app');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control');
+    res.header('Access-Control-Expose-Headers', 'Authorization, Content-Length');
 
-    // Add environment-based origins
-    if (process.env.ALLOWED_CLIENTS) {
-        const envOrigins = process.env.ALLOWED_CLIENTS.split(',');
-        envOrigins.forEach(envOrigin => {
-            allowedOrigins.push(envOrigin.trim().replace(/\/$/, ''));
-        });
-    }
+    console.log(`🚨 EMERGENCY CORS headers ALWAYS set for: ${req.method} ${req.url} from ${req.headers.origin || 'no-origin'}`);
 
-    // Set CORS headers for allowed origins
-    if (!origin || allowedOrigins.includes(origin)) {
-        res.header('Access-Control-Allow-Origin', origin || 'https://fileforge-indol.vercel.app');
-        res.header('Access-Control-Allow-Credentials', 'true');
-        res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
-        res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control');
-        res.header('Access-Control-Expose-Headers', 'Authorization, Content-Length');
-
-        console.log(`🔥 CORS headers set for: ${req.method} ${req.url} from ${origin || 'no-origin'}`);
-    }
-
-    // Handle preflight requests immediately
+    // Handle ALL OPTIONS requests immediately
     if (req.method === 'OPTIONS') {
-        console.log('🔥 OPTIONS request handled immediately');
+        console.log('🚨 EMERGENCY OPTIONS handled immediately for:', req.url);
         return res.status(200).end();
     }
 
@@ -333,7 +315,7 @@ app.post('/api/test-cors', (req, res) => {
 app.get('/api/deployment-info', (req, res) => {
     const deploymentInfo = {
         timestamp: new Date().toISOString(),
-        corsFixVersion: '3.3',
+        corsFixVersion: '3.4',
         environment: process.env.NODE_ENV || 'unknown',
         allowedClients: process.env.ALLOWED_CLIENTS || 'not set',
         origin: req.headers.origin || 'no origin',
@@ -347,7 +329,8 @@ app.get('/api/deployment-info', (req, res) => {
         emergencyCorsForFileUpload: true,
         authenticationTemporarilyRemoved: true,
         backendOnlyMode: true,
-        staticFileServingDisabled: true
+        staticFileServingDisabled: true,
+        emergencyAlwaysSetCors: true
     };
 
     console.log('Deployment info requested:', deploymentInfo);
