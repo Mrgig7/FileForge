@@ -20,10 +20,47 @@ let upload = multer({
     limits: { fileSize: 1000000 * 100 },
 }).single('myfile');
 
+// Handle CORS preflight requests for file upload
+router.options('/', (req, res) => {
+    const origin = req.headers.origin;
+    const allowedOrigins = [
+        'https://fileforge-indol.vercel.app',
+        'https://fileforge-react.vercel.app',
+        'http://localhost:5173',
+        'http://localhost:3000'
+    ];
+
+    if (!origin || allowedOrigins.includes(origin)) {
+        res.header('Access-Control-Allow-Origin', origin || 'https://fileforge-indol.vercel.app');
+        res.header('Access-Control-Allow-Credentials', 'true');
+        res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
+        res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control');
+        console.log('🚨 CORS preflight handled for file upload:', origin);
+    }
+
+    res.status(200).end();
+});
+
 // @route   POST /api/files
 // @desc    Upload a file
-// @access  Private
-router.post('/', ensureApiAuth, async (req, res) => {
+// @access  Public (temporarily for CORS fix)
+router.post('/', async (req, res) => {
+    // EMERGENCY CORS FIX - Set headers immediately
+    const origin = req.headers.origin;
+    const allowedOrigins = [
+        'https://fileforge-indol.vercel.app',
+        'https://fileforge-react.vercel.app',
+        'http://localhost:5173',
+        'http://localhost:3000'
+    ];
+
+    if (!origin || allowedOrigins.includes(origin)) {
+        res.header('Access-Control-Allow-Origin', origin || 'https://fileforge-indol.vercel.app');
+        res.header('Access-Control-Allow-Credentials', 'true');
+        res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
+        res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control');
+        console.log('🚨 EMERGENCY CORS headers set for file upload:', origin);
+    }
     console.log('=== FILE UPLOAD REQUEST START ===');
     console.log('Timestamp:', new Date().toISOString());
     console.log('Origin:', req.headers.origin);

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Quick CORS Test</title>
+</head>
+<body>
+    <h1>Quick CORS Test</h1>
+    <button onclick="testCORS()">Test CORS</button>
+    <div id="result"></div>
+
+    <script>
+        async function testCORS() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                console.log('Testing CORS with fetch...');
+                
+                // Test 1: Simple GET request
+                const response1 = await fetch('https://fileforge-backend.vercel.app/api/deployment-info');
+                const data1 = await response1.json();
+                console.log('GET test result:', data1);
+                
+                // Test 2: POST request with CORS
+                const response2 = await fetch('https://fileforge-backend.vercel.app/api/test-cors', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Origin': 'https://fileforge-indol.vercel.app'
+                    },
+                    body: JSON.stringify({ test: 'cors' })
+                });
+                
+                console.log('POST response status:', response2.status);
+                console.log('POST response headers:', Object.fromEntries([...response2.headers]));
+                
+                const data2 = await response2.json();
+                console.log('POST test result:', data2);
+                
+                resultDiv.innerHTML = `
+                    <h3>✅ CORS Test Successful!</h3>
+                    <p><strong>GET Test:</strong> Version ${data1.corsFixVersion}</p>
+                    <p><strong>POST Test:</strong> ${data2.success ? 'Success' : 'Failed'}</p>
+                    <pre>${JSON.stringify(data2, null, 2)}</pre>
+                `;
+                
+            } catch (error) {
+                console.error('CORS test failed:', error);
+                resultDiv.innerHTML = `
+                    <h3>❌ CORS Test Failed</h3>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                    <p>This indicates CORS is still not working properly.</p>
+                `;
+            }
+        }
+        
+        // Auto-run test
+        window.onload = () => testCORS();
+    </script>
+</body>
+</html>

@@ -333,7 +333,7 @@ app.post('/api/test-cors', (req, res) => {
 app.get('/api/deployment-info', (req, res) => {
     const deploymentInfo = {
         timestamp: new Date().toISOString(),
-        corsFixVersion: '3.1',
+        corsFixVersion: '3.2',
         environment: process.env.NODE_ENV || 'unknown',
         allowedClients: process.env.ALLOWED_CLIENTS || 'not set',
         origin: req.headers.origin || 'no origin',
@@ -343,7 +343,9 @@ app.get('/api/deployment-info', (req, res) => {
         errorHandlerActive: true,
         simplifiedCorsConfig: true,
         apiRouteProtection: true,
-        staticFileConflictFixed: true
+        staticFileConflictFixed: true,
+        emergencyCorsForFileUpload: true,
+        authenticationTemporarilyRemoved: true
     };
 
     console.log('Deployment info requested:', deploymentInfo);
