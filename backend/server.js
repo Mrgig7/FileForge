@@ -310,7 +310,7 @@ app.post('/api/test-cors', (req, res) => {
 app.get('/api/deployment-info', (req, res) => {
     const deploymentInfo = {
         timestamp: new Date().toISOString(),
-        corsFixVersion: '3.6',
+        corsFixVersion: '3.7',
         environment: process.env.NODE_ENV || 'unknown',
         allowedClients: process.env.ALLOWED_CLIENTS || 'not set',
         origin: req.headers.origin || 'no origin',
@@ -329,7 +329,8 @@ app.get('/api/deployment-info', (req, res) => {
         multerConflictFixed: true,
         multerConflictFixed: true,
         enhancedDebugging: true,
-        vercelTempDirFixed: true
+        vercelTempDirFixed: true,
+        optionsHandlerAdded: true
     };
 
     console.log('Deployment info requested:', deploymentInfo);
@@ -350,6 +351,19 @@ app.get('/api/cors-verify', (req, res) => {
             'access-control-allow-credentials': res.getHeader('access-control-allow-credentials')
         }
     });
+});
+
+// OPTIONS handler for test upload endpoint
+app.options('/api/files/test-upload', (req, res) => {
+    const origin = req.headers.origin;
+    if (origin === 'https://fileforge-indol.vercel.app' || !origin) {
+        res.header('Access-Control-Allow-Origin', origin || 'https://fileforge-indol.vercel.app');
+        res.header('Access-Control-Allow-Credentials', 'true');
+        res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control');
+        console.log('🔧 Test upload OPTIONS handled for:', origin);
+    }
+    res.status(200).end();
 });
 
 // File upload diagnostic endpoint
