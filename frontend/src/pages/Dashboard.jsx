@@ -2,9 +2,11 @@ import { useState, useEffect, useContext, useRef } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { fileApi } from '../services/api';
 import Header from '../components/Header';
-import FileCard from '../components/FileCard';
 import FileUploader from '../components/FileUploader';
+import DocumentViewer from '../components/DocumentViewer';
+import Scene from '../components/3d/Scene';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // API base URL from environment or fallback to production URL
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fileforge-backend.vercel.app';
@@ -14,6 +16,9 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showUploader, setShowUploader] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null); // Lifted state
+  const [showViewer, setShowViewer] = useState(false);
+  const [viewerData, setViewerData] = useState({ url: null, mimeType: null });
   const [stats, setStats] = useState({
     totalFiles: 0,
     totalSize: 0,
@@ -21,201 +26,104 @@ const Dashboard = () => {
   });
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const dashboardRef = useRef(null);
-
-  const { isAuthenticated, token, login } = useContext(AuthContext);
+  
+  const { isAuthenticated, token } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    // Simple animation for elements when they come into view
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('animate-fade-in');
-          }
-        });
-      },
-      { threshold: 0.1 }
-    );
-
-    const sections = document.querySelectorAll('.animate-on-scroll');
-    sections.forEach((section) => {
-      observer.observe(section);
-    });
-
-    return () => {
-      sections.forEach((section) => {
-        observer.unobserve(section);
-      });
-    };
-  }, []);
-
-  // Fetch files from backend
+  // Fetch files logic
   const fetchFiles = async () => {
     setLoading(true);
-    setError(null);
-
     try {
-      // Get token from context
-      if (!token) {
-        console.error('Missing authentication token');
-        throw new Error('Authentication required');
-      }
-
-      console.log('Using token for dashboard API call:', token ? 'Token exists' : 'No token');
-      console.log('Current user in AuthContext:', isAuthenticated ? 'Authenticated' : 'Not authenticated');
-
-      // Construct the dashboard URL - handle both cases where API_BASE_URL may or may not include /api
+      if (!token) throw new Error('Authentication required');
+      
       const dashboardUrl = API_BASE_URL.includes('/api')
         ? `${API_BASE_URL}/dashboard`
         : `${API_BASE_URL}/api/dashboard`;
 
-      console.log(`Fetching dashboard data from: ${dashboardUrl}`);
-      console.log(`Using token: ${token.substring(0, 20)}...`);
-
-      // Try to fetch files
-      let response = await fetch(dashboardUrl, {
+      const response = await fetch(dashboardUrl, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        credentials: 'include'
       });
 
-      console.log('Dashboard response status:', response.status);
-
-      // If token is invalid, handle authentication failure
-      if (!response.ok && response.status === 401) {
-        console.log('Token authentication failed (401)');
-
-        // Try to get error details
-        let errorMessage = '';
-        try {
-          const errorData = await response.json();
-          console.log('401 error details:', errorData);
-          errorMessage = errorData.error || '';
-        } catch (e) {
-          console.log('Could not parse 401 error response');
-        }
-
-        // Check if it's specifically a token expiration
-        if (errorMessage.includes('expired') || errorMessage.includes('Token has expired')) {
-          console.log('Token has expired, clearing auth state and redirecting');
-        }
-
-        // Clear invalid token and redirect to login
-        localStorage.removeItem('token');
-        localStorage.removeItem('userInfo');
-        localStorage.removeItem('profilePicUrl');
-
-        // Use navigate instead of window.location to prevent infinite loops
-        navigate('/login', {
-          state: {
-            from: '/dashboard',
-            message: 'Session expired. Please login again.'
-          },
-          replace: true // Replace current history entry to prevent back button issues
-        });
-        return;
-      }
-
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to fetch files' }));
-        throw new Error(errorData.error || `Failed to fetch files: ${response.status}`);
+        if (response.status === 401) {
+           navigate('/login');
+           return;
+        }
+        throw new Error('Failed to fetch');
       }
 
       const data = await response.json();
-
-      console.log('Fetched files from dashboard API:', data);
-
-      // Use the files array from the response
       const filesData = data.files || [];
-
-      if (filesData.length === 0) {
-        console.log('No files found for the current user');
-      } else {
-        console.log(`Found ${filesData.length} files for the current user`);
-      }
-
-      // Calculate stats from files
       const totalSize = filesData.reduce((sum, file) => sum + file.size, 0);
-      const totalFiles = filesData.length;
 
       setFiles(filesData);
-      setStats({
-        totalFiles,
-        totalSize,
-        totalDownloads: 0 // This would come from your backend if you track downloads
-      });
+      setStats({ totalFiles: filesData.length, totalSize, totalDownloads: 0 });
     } catch (err) {
-      console.error('Error fetching files:', err);
-      setError('Failed to load your files. Please try again.');
-
-      // If authentication error, redirect to login
-      if (err.message.includes('Authentication required') || err.message.includes('Auth token invalid')) {
-        navigate('/login');
-      }
+      console.error('Error:', err);
+      setError('Could not load data stream.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Initial data fetch
   useEffect(() => {
-    if (!isAuthenticated || !token) return;
+    if (isAuthenticated && token) fetchFiles();
+  }, [isAuthenticated, token]);
 
-    // Load files when authenticated and token is available
-    const loadFiles = async () => {
-      try {
-        await fetchFiles();
-      } catch (err) {
-        console.error("Error in initial data fetch:", err);
-      }
-    };
-
-    loadFiles();
-  }, [isAuthenticated, token]); // Add token to dependency array
-
-  // Filter files based on search query and active tab
   const filteredFiles = files.filter(file => {
     const matchesSearch = file.originalName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          file.filename?.toLowerCase().includes(searchQuery.toLowerCase());
-
-    // Since we don't have active/expired status in the backend model,
-    // we'll consider files older than 24 hours as expired
-    const isExpired = new Date(file.createdAt) < new Date(Date.now() - 24 * 60 * 60 * 1000);
-
+    // Use expiresAt field (files now expire after 30 days by default)
+    const isExpired = file.expiresAt ? new Date(file.expiresAt) < new Date() : false;
     if (activeTab === 'all') return matchesSearch;
     if (activeTab === 'active') return matchesSearch && !isExpired;
     if (activeTab === 'expired') return matchesSearch && isExpired;
-
     return matchesSearch;
   });
 
-  // Handle file upload success
   const handleUploadSuccess = async () => {
     setShowUploader(false);
-    await fetchFiles(); // Refresh the files list
+    await fetchFiles();
   };
 
-  // Handle file deletion
   const handleDeleteFile = async (uuid) => {
     try {
       await fileApi.deleteFile(uuid);
-      await fetchFiles(); // Refresh the files list
+      setSelectedFile(null);
+      await fetchFiles();
     } catch (err) {
-      console.error('Error deleting file:', err);
-      setError('Failed to delete file. Please try again.');
+      console.error('Delete error', err);
     }
   };
 
-  // Handle file download
-  const handleDownload = async (uuid, filename) => {
+  const handleDownload = async (file) => {
     try {
-      const blob = await fileApi.downloadFile(uuid);
+      const filename = file.originalName || file.filename;
+      const token = localStorage.getItem('token');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+      
+      // Use native fetch instead of Axios for reliable binary data handling
+      console.log('Downloading via fetch API:', file.uuid);
+      const response = await fetch(`${apiUrl}/files/${file.uuid}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Download failed: ${response.statusText}`);
+      }
+      
+      const blob = await response.blob();
+      console.log('Downloaded blob size:', blob.size, 'type:', blob.type);
+      
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -225,167 +133,251 @@ const Dashboard = () => {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (err) {
-      console.error('Error downloading file:', err);
-      setError('Failed to download file. Please try again.');
+      console.error('Download error', err);
+      alert('Failed to download file. Please try again.');
     }
   };
 
+  const handlePreview = async (file) => {
+    try {
+      // Derive mime type from filename extension
+      const getMimeType = (filename) => {
+        const ext = filename?.split('.').pop()?.toLowerCase();
+        const mimeMap = {
+          // Images
+          'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png',
+          'gif': 'image/gif', 'webp': 'image/webp', 'svg': 'image/svg+xml',
+          // Documents
+          'pdf': 'application/pdf',
+          // Video
+          'mp4': 'video/mp4', 'webm': 'video/webm', 'mov': 'video/quicktime',
+          // Audio
+          'mp3': 'audio/mpeg', 'wav': 'audio/wav', 'ogg': 'audio/ogg',
+          // Text/Code
+          'txt': 'text/plain', 'html': 'text/html', 'css': 'text/css',
+          'js': 'text/javascript', 'jsx': 'text/javascript', 
+          'ts': 'text/typescript', 'tsx': 'text/typescript',
+          'json': 'application/json', 'xml': 'application/xml',
+          'md': 'text/markdown', 'py': 'text/x-python', 'java': 'text/x-java',
+          'c': 'text/x-c', 'cpp': 'text/x-c++', 'h': 'text/x-c'
+        };
+        return mimeMap[ext] || 'application/octet-stream';
+      };
+
+      const fileName = file.originalName || file.filename;
+      const mimeType = getMimeType(fileName);
+      const token = localStorage.getItem('token');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+      
+      // Use native fetch instead of Axios for reliable binary data handling
+      console.log('Fetching preview via fetch API:', file.uuid);
+      const response = await fetch(`${apiUrl}/files/${file.uuid}/preview`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Preview failed: ${response.statusText}`);
+      }
+      
+      const blob = await response.blob();
+      console.log('Preview blob size:', blob.size, 'type:', blob.type);
+      
+      const url = URL.createObjectURL(blob);
+      setViewerData({ url, mimeType, fileName });
+      setShowViewer(true);
+    } catch (err) {
+      console.error('Preview error', err);
+      alert('Could not preview this file. It may have been deleted or expired.');
+    }
+  };
+
+  const closeViewer = () => {
+    if (viewerData.url) {
+      URL.revokeObjectURL(viewerData.url);
+    }
+    setShowViewer(false);
+    setViewerData({ url: null, mimeType: null });
+  };
+
   return (
-    <div className="min-h-screen bg-dark-bg-primary overflow-hidden text-dark-text-primary">
+    <div className="h-screen w-full bg-[#050510] overflow-hidden text-white relative font-sans">
       <Header />
 
-      {/* Quick Actions Bar */}
-      <div className="bg-dark-bg-secondary border-b border-dark-border/40">
-        <div className="container mx-auto px-4">
-          <div className="h-16 flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              {/* Storage Usage */}
-              <div className="flex items-center gap-3">
-                <div className="w-32 h-2 bg-dark-bg-primary rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-dark-accent-primary to-blue-500 rounded-full"
-                    style={{ width: `${Math.min((stats.totalSize / (1024 * 1024 * 1024)) * 100, 100)}%` }}
-                  ></div>
-                </div>
-                <span className="text-sm text-dark-text-secondary">
-                  {(stats.totalSize / (1024 * 1024)).toFixed(1)} MB Used
-                </span>
-              </div>
-
-              {/* Quick Stats */}
-              <div className="flex items-center gap-6 text-sm">
-                <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-dark-accent-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <span className="text-dark-text-secondary">{stats.totalFiles} Files</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                  </svg>
-                  <span className="text-dark-text-secondary">
-                    {filteredFiles.filter(f => new Date(f.createdAt) >= new Date(Date.now() - 24 * 60 * 60 * 1000)).length} Active
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowUploader(true)}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm bg-dark-accent-primary hover:bg-dark-accent-secondary text-white rounded-lg transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                </svg>
-                New Upload
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* 3D Scene Background */}
+      <div className="absolute inset-0 z-0">
+          <Scene 
+              files={filteredFiles} 
+              selectedFile={selectedFile}
+              onSelect={setSelectedFile}
+              onDownload={handleDownload}
+              onDelete={handleDeleteFile}
+          />
       </div>
 
-      <main ref={dashboardRef}>
-        {/* Files Section */}
-        <section className="py-8 bg-dark-bg-primary relative overflow-hidden">
-          <div className="container relative mx-auto px-4 max-w-full lg:max-w-screen-2xl">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-              <h2 className="text-3xl font-bold text-dark-text-primary">My Files</h2>
-
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full sm:w-auto">
-                {/* Tabs */}
-                <div className="flex bg-dark-bg-secondary rounded-xl p-1 border border-dark-border/50">
-                  {['all', 'active', 'expired'].map((tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => setActiveTab(tab)}
-                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
-                        activeTab === tab
-                          ? 'bg-dark-accent-primary text-white'
-                          : 'text-dark-text-secondary hover:text-white'
-                      }`}
-                    >
-                      {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Search */}
-                <div className="relative w-full sm:w-64">
-                  <input
-                    type="text"
-                    placeholder="Search files..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full px-4 py-2 bg-dark-bg-secondary border border-dark-border/50 rounded-xl text-dark-text-primary placeholder-dark-text-secondary focus:outline-none focus:border-dark-accent-primary/50 transition-colors"
-                  />
-                  <svg className="w-5 h-5 text-dark-text-secondary absolute right-3 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-              </div>
+      {/* HUD Overlay - Top Left: Search & Filter */}
+      <motion.div 
+        initial={{ x: -100, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ delay: 0.5 }}
+        className="absolute top-24 left-6 z-10 flex flex-col gap-4 w-80 pointer-events-none"
+      >
+         <div className="pointer-events-auto bg-black/40 backdrop-blur-xl border border-white/10 p-4 rounded-2xl shadow-lg">
+            <h1 className="text-xl font-bold mb-4 tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">
+               SYSTEM DATA
+            </h1>
+            
+            <div className="relative mb-4 group">
+               <input
+                  type="text"
+                  placeholder="SEARCH_QUERY..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2 pl-10 text-sm focus:border-cyan-500/50 focus:outline-none transition-colors uppercase tracking-widest"
+               />
+               <svg className="w-4 h-4 text-cyan-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+               </svg>
             </div>
 
-            {loading ? (
-              <div className="text-center py-12">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-dark-accent-primary"></div>
-                <p className="mt-2 text-dark-text-secondary">Loading your files...</p>
-              </div>
-            ) : error ? (
-              <div className="p-4 bg-red-500/10 text-red-400 rounded-xl border border-red-500/20">
-                {error}
-              </div>
-            ) : filteredFiles.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="relative w-24 h-24 mx-auto mb-6">
-                  <div className="absolute inset-0 bg-dark-accent-primary/20 rounded-full blur-xl"></div>
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-24 h-24 text-dark-text-secondary relative">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-                  </svg>
-                </div>
-                <h3 className="mt-2 text-xl font-medium text-dark-text-primary">
-                  {searchQuery ? 'No files found' : 'No files yet'}
-                </h3>
-                <p className="mt-1 text-dark-text-secondary">
-                  {searchQuery
-                    ? 'Try adjusting your search or filter criteria'
-                    : 'Upload your first file to get started'}
-                </p>
-                {!searchQuery && (
-                  <button
-                    onClick={() => setShowUploader(true)}
-                    className="mt-6 px-6 py-3 bg-dark-accent-primary hover:bg-dark-accent-secondary text-white font-medium rounded-xl transition-colors flex items-center gap-2 mx-auto"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                    </svg>
-                    Upload a File
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredFiles.map(file => (
-                  <FileCard
-                    key={file.uuid}
-                    file={file}
-                    onDelete={() => handleDeleteFile(file.uuid)}
-                    onDownload={() => handleDownload(file.uuid, file.originalName || file.filename)}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-      </main>
+            <div className="flex gap-2 text-xs">
+               {['all', 'active', 'expired'].map(tab => (
+                 <button 
+                   key={tab}
+                   onClick={() => setActiveTab(tab)}
+                   className={`flex-1 py-1.5 rounded uppercase tracking-wider transition-all border ${
+                     activeTab === tab 
+                     ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.2)]' 
+                     : 'bg-transparent border-white/5 text-gray-500 hover:border-white/20 hover:text-gray-300'
+                   }`}
+                 >
+                   {tab}
+                 </button>
+               ))}
+            </div>
+         </div>
+      </motion.div>
 
-      {/* File Uploader Modal */}
-      {showUploader && (
-        <FileUploader
-          onClose={() => setShowUploader(false)}
-          onSuccess={handleUploadSuccess}
+      {/* Cinema Mode Detail Overlay */}
+      <AnimatePresence>
+        {selectedFile && (
+            <motion.div
+                initial={{ opacity: 0, y: 50, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 pointer-events-auto"
+            >
+                <div className="bg-[#0a0a12]/80 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 w-[500px] shadow-[0_0_50px_rgba(0,0,0,0.5)] relative overflow-hidden">
+                    {/* Glowing effect inside card */}
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-50"></div>
+                    
+                    <div className="flex justify-between items-start mb-4">
+                        <div>
+                            <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400 mb-1">
+                                {selectedFile.originalName}
+                            </h2>
+                            <p className="text-xs text-cyan-400 uppercase tracking-widest font-mono">
+                                {selectedFile.mimetype || 'UNKNOWN_MODULE'} • {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                        </div>
+                        <button 
+                            onClick={() => setSelectedFile(null)}
+                            className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                        >
+                            <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                         <div className="bg-black/40 p-3 rounded-xl border border-white/5">
+                            <span className="block text-[10px] text-gray-500 uppercase">Status</span>
+                            <span className="text-sm font-medium text-green-400 flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
+                                Active
+                            </span>
+                         </div>
+                         <div className="bg-black/40 p-3 rounded-xl border border-white/5">
+                            <span className="block text-[10px] text-gray-500 uppercase">Uploaded</span>
+                            <span className="text-sm font-medium text-gray-300">
+                                {new Date(selectedFile.createdAt).toLocaleDateString()}
+                            </span>
+                         </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                        <button 
+                            onClick={() => handlePreview(selectedFile)}
+                            className="flex-1 bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-[0_0_20px_rgba(147,51,234,0.3)] hover:shadow-[0_0_30px_rgba(147,51,234,0.5)] active:scale-95 flex items-center justify-center gap-2"
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                            VIEW DATA
+                        </button>
+                        <button 
+                            onClick={() => handleDownload(selectedFile)}
+                            className="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] active:scale-95 flex items-center justify-center gap-2"
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                            RETRIEVE DATA
+                        </button>
+                        <button 
+                            onClick={() => {
+                                if(confirm('Purge this asset?')) handleDeleteFile(selectedFile.uuid);
+                            }}
+                            className="bg-red-500/10 hover:bg-red-500/20 text-red-400 p-3 rounded-xl transition-colors border border-red-500/20"
+                        >
+                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                    </div>
+                </div>
+            </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* FAB - Bottom Right: Upload */}
+      <motion.button
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        onClick={() => setShowUploader(true)}
+        className="absolute bottom-10 right-10 z-20 w-16 h-16 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 flex items-center justify-center shadow-[0_0_30px_rgba(6,182,212,0.4)] hover:shadow-[0_0_50px_rgba(6,182,212,0.6)] border border-white/20 transition-all group"
+      >
+         <div className="absolute inset-0 rounded-full border border-white/30 animate-ping opacity-20"></div>
+         <svg className="w-8 h-8 text-white group-hover:rotate-90 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+         </svg>
+      </motion.button>
+
+      {/* Loading State */}
+      {loading && (
+        <div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
+           <div className="flex flex-col items-center">
+              <div className="w-16 h-16 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin mb-4"></div>
+              <p className="text-cyan-500 font-mono tracking-widest text-sm animate-pulse">INITIALIZING ENVIRONMENT...</p>
+           </div>
+        </div>
+      )}
+
+      {/* Uploader Modal */}
+      <AnimatePresence>
+        {showUploader && (
+          <FileUploader
+            onClose={() => setShowUploader(false)}
+            onSuccess={handleUploadSuccess}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Document Viewer Modal */}
+      {showViewer && viewerData.url && (
+        <DocumentViewer
+          fileUrl={viewerData.url}
+          fileName={viewerData.fileName}
+          mimeType={viewerData.mimeType}
+          onClose={closeViewer}
         />
       )}
     </div>

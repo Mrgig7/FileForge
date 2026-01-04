@@ -2,6 +2,8 @@ import { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import Header from '../components/Header';
 import ProfileAvatar from '../components/ProfileAvatar';
+import ProfileScene from '../components/3d/ProfileScene';
+import { motion } from 'framer-motion';
 
 const Profile = () => {
   const { user, updateProfile, token } = useContext(AuthContext);
@@ -27,7 +29,6 @@ const Profile = () => {
       }));
       if (user.profilePic) {
         setPreviewUrl(user.profilePic);
-        console.log('Setting profile preview URL:', user.profilePic);
       }
     }
   }, [user]);
@@ -35,12 +36,10 @@ const Profile = () => {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Check file size
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        setError('Image is too large. Maximum size is 5MB.');
+      if (file.size > 5 * 1024 * 1024) { 
+        setError('Image exists standard dimensions. Max 5MB.');
         return;
       }
-      
       setFormData(prev => ({ ...prev, profilePic: file }));
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -52,25 +51,18 @@ const Profile = () => {
 
   const uploadProfilePicture = async (file) => {
     if (!file) return null;
-    
     try {
-      // Read the file as a data URL (Base64)
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = async () => {
           try {
-            // Create an image element to compress the image
             const img = new Image();
             img.src = reader.result;
-            
             img.onload = async () => {
               try {
-                // Create a canvas to resize the image
                 const canvas = document.createElement('canvas');
                 let width = img.width;
                 let height = img.height;
-                
-                // Calculate new dimensions (max 800px width/height)
                 const MAX_SIZE = 800;
                 if (width > height && width > MAX_SIZE) {
                   height = Math.round((height * MAX_SIZE) / width);
@@ -79,87 +71,34 @@ const Profile = () => {
                   width = Math.round((width * MAX_SIZE) / height);
                   height = MAX_SIZE;
                 }
-                
                 canvas.width = width;
                 canvas.height = height;
-                
-                // Draw resized image to canvas
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
-                
-                // Get compressed image as JPEG data URL (quality 0.8)
                 const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
-                
-                // Extract content type and Base64 data
                 const contentType = compressedDataUrl.split(';')[0].split(':')[1];
                 
-                console.log(`Original size: ${Math.round(reader.result.length / 1024)}KB, Compressed: ${Math.round(compressedDataUrl.length / 1024)}KB`);
+                const response = await fetch('/api/profile/upload-base64', {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                  },
+                  body: JSON.stringify({ imageData: compressedDataUrl, contentType }),
+                });
                 
-                try {
-                  // Upload to the server with the complete data URL
-                  const response = await fetch('/api/profile/upload-base64', {
-                    method: 'PUT',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({ 
-                      imageData: compressedDataUrl, // Send the complete data URL
-                      contentType 
-                    }),
-                  });
-                  
-                  if (!response.ok) {
-                    const errorText = await response.text();
-                    let errorMessage = `Server error: ${response.status}`;
-                    
-                    try {
-                      // Try to parse as JSON
-                      const errorData = JSON.parse(errorText);
-                      errorMessage = errorData.error || errorMessage;
-                    } catch {
-                      // If not JSON, use text (might be HTML error page)
-                      errorMessage = errorText.includes('<') 
-                        ? `Server error: ${response.status}` 
-                        : errorText;
-                    }
-                    
-                    throw new Error(errorMessage);
-                  }
-                  
-                  const result = await response.json();
-                  
-                  // Save the Cloudinary URL to localStorage for persistence
-                  if (result.user && result.user.profilePic) {
-                    localStorage.setItem('profilePicUrl', result.user.profilePic);
-                    console.log('Saved profile pic URL to localStorage:', result.user.profilePic);
-                  }
-                  
-                  resolve(result);
-                } catch (uploadError) {
-                  console.error('Upload error:', uploadError);
-                  reject(uploadError);
-                }
-              } catch (canvasError) {
-                console.error('Canvas error:', canvasError);
-                reject(new Error('Failed to process image'));
-              }
+                if (!response.ok) throw new Error('Upload failed');
+                const result = await response.json();
+                if (result.user?.profilePic) localStorage.setItem('profilePicUrl', result.user.profilePic);
+                resolve(result);
+              } catch (err) { reject(err); }
             };
-            
-            img.onerror = () => reject(new Error('Failed to load image for processing'));
-            
-          } catch (error) {
-            console.error('Image processing error:', error);
-            reject(error);
-          }
+            img.onerror = () => reject(new Error('Image load failed'));
+          } catch (error) { reject(error); }
         };
-        reader.onerror = () => reject(new Error('Failed to read file'));
         reader.readAsDataURL(file);
       });
-    } catch (error) {
-      console.error('Error uploading profile picture:', error);
-      throw error;
-    }
+    } catch (error) { throw error; }
   };
 
   const handleSubmit = async (e) => {
@@ -169,51 +108,24 @@ const Profile = () => {
     setIsLoading(true);
 
     try {
-      // Password validation if changing password
       if (formData.newPassword || formData.confirmNewPassword) {
-        if (!formData.currentPassword) {
-          throw new Error('Current password is required to change password');
-        }
-        if (formData.newPassword !== formData.confirmNewPassword) {
-          throw new Error('New passwords do not match');
-        }
-        if (formData.newPassword.length < 6) {
-          throw new Error('New password must be at least 6 characters');
-        }
+        if (!formData.currentPassword) throw new Error('Current password required');
+        if (formData.newPassword !== formData.confirmNewPassword) throw new Error('Passwords do not match');
+        if (formData.newPassword.length < 6) throw new Error('Password too short (min 6)');
       }
 
-      // Check if token is available
-      if (!token) {
-        console.error('No authentication token found in Profile component');
-        throw new Error('Authentication required. Please try logging in again.');
-      }
+      if (!token) throw new Error('Auth Token Missing');
 
       let profileUpdateResult;
-      
-      // If we have a profile picture, upload it separately using the Base64 endpoint
       if (formData.profilePic instanceof File) {
-        try {
-          const uploadResult = await uploadProfilePicture(formData.profilePic);
-          if (uploadResult && uploadResult.success) {
+        const uploadResult = await uploadProfilePicture(formData.profilePic);
+        if (uploadResult?.success) {
             profileUpdateResult = uploadResult;
-            // Update the preview with the server-returned URL
-            if (uploadResult.user && uploadResult.user.profilePic) {
-              setPreviewUrl(uploadResult.user.profilePic);
-            }
-          }
-        } catch (picError) {
-          console.error('Profile picture upload failed:', picError);
-          setError(picError.message || 'Failed to upload profile picture');
-          setIsLoading(false);
-          return;
+            if (uploadResult.user?.profilePic) setPreviewUrl(uploadResult.user.profilePic);
         }
       }
       
-      // Only update other profile fields if we're not just updating the profile picture
-      // or if the profile picture upload didn't succeed
       if (!profileUpdateResult) {
-        console.log('Updating other profile fields');
-        
         profileUpdateResult = await updateProfile({
           name: formData.name,
           email: formData.email,
@@ -222,191 +134,159 @@ const Profile = () => {
         });
       }
 
-      setSuccess(profileUpdateResult.message || 'Profile updated successfully!');
-      // Clear sensitive data
-      setFormData(prev => ({
-        ...prev,
-        currentPassword: '',
-        newPassword: '',
-        confirmNewPassword: ''
-      }));
+      setSuccess(profileUpdateResult.message || 'Profile Updated');
+      setFormData(prev => ({ ...prev, currentPassword: '', newPassword: '', confirmNewPassword: '' }));
     } catch (err) {
-      console.error('Profile update error:', err);
-      setError(err.message || 'Failed to update profile');
+      setError(err.message || 'Update Failed');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-dark-bg-primary text-dark-text-primary">
+    <div className="h-screen w-full bg-[#050510] overflow-hidden text-white relative font-sans">
       <Header />
       
-      <main className="py-12 px-4">
-        <div className="container mx-auto max-w-4xl">
-          <div className="bg-dark-bg-secondary rounded-2xl p-8 border border-dark-border/60">
-            <h1 className="text-3xl font-bold mb-8">Profile Settings</h1>
-            
-            {error && (
-              <div className="mb-6 p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400">
-                {error}
-              </div>
-            )}
-            
-            {success && (
-              <div className="mb-6 p-4 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400">
-                {success}
-              </div>
-            )}
+      {/* 3D Background */}
+      <div className="absolute inset-0 z-0">
+         <ProfileScene />
+      </div>
 
-            <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Profile Picture Section */}
-              <div className="flex items-start space-x-6">
-                <div className="relative group">
-                  {previewUrl ? (
-                    <div className="w-32 h-32 rounded-full overflow-hidden bg-dark-bg-primary border-2 border-dark-border group-hover:border-dark-accent-primary transition-colors">
-                      <img 
-                        src={previewUrl} 
-                        alt="Profile" 
-                        className="w-full h-full object-cover"
-                      />
+      <main className="absolute inset-0 z-10 flex items-center justify-center p-4 pointer-events-none">
+        <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-4xl pointer-events-auto"
+        >
+          <div className="bg-[#0a0a12]/70 backdrop-blur-2xl border border-white/10 rounded-3xl p-8 shadow-[0_0_50px_rgba(0,0,0,0.5)] relative overflow-hidden">
+             
+             {/* Decorative Top Line */}
+             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-50"></div>
+
+             <div className="flex flex-col md:flex-row gap-8 items-start">
+                 
+                 {/* Left Column: Avatar & Status */}
+                 <div className="flex flex-col items-center gap-4 w-full md:w-1/3">
+                    <div className="relative group">
+                        <div className="w-32 h-32 rounded-full p-1 bg-gradient-to-br from-cyan-500 to-purple-600 shadow-[0_0_20px_rgba(6,182,212,0.3)] group-hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] transition-shadow duration-300">
+                             <div className="w-full h-full rounded-full overflow-hidden bg-black/50 backdrop-blur">
+                                {previewUrl ? (
+                                    <img src={previewUrl} alt="Profile" className="w-full h-full object-cover" />
+                                ) : (
+                                    <ProfileAvatar user={user} size="lg" className="w-full h-full" />
+                                )}
+                             </div>
+                        </div>
+                        <label className="absolute bottom-1 right-1 bg-cyan-600 hover:bg-cyan-500 p-2 rounded-full cursor-pointer shadow-lg transition-colors border border-white/20">
+                            <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </label>
                     </div>
-                  ) : (
-                    <ProfileAvatar user={user} size="lg" className="border-2 border-dark-border group-hover:border-dark-accent-primary transition-colors" />
-                  )}
-                  <label className="absolute bottom-0 right-0 bg-dark-accent-primary hover:bg-dark-accent-secondary p-2 rounded-full cursor-pointer transition-colors">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageChange}
-                      className="hidden"
-                    />
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  </label>
-                </div>
-
-                <div className="flex-1">
-                  <h3 className="text-lg font-medium">Profile Picture</h3>
-                  <p className="text-dark-text-secondary text-sm mt-1">
-                    Upload a new profile picture. JPG, PNG or GIF, max 5MB.
-                  </p>
-                </div>
-              </div>
-
-              {/* Basic Information */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-dark-text-secondary mb-2">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    className="w-full px-4 py-3 bg-dark-bg-primary border border-dark-border rounded-lg focus:ring-2 focus:ring-dark-accent-primary focus:border-dark-accent-primary transition-all"
-                    placeholder="Your name"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-dark-text-secondary mb-2">
-                    Email Address
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                    className="w-full px-4 py-3 bg-dark-bg-primary border border-dark-border rounded-lg focus:ring-2 focus:ring-dark-accent-primary focus:border-dark-accent-primary transition-all"
-                    placeholder="your@email.com"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Change Password Section */}
-              <div className="border-t border-dark-border pt-8">
-                <h3 className="text-lg font-medium mb-6">Change Password</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-dark-text-secondary mb-2">
-                      Current Password
-                    </label>
-                    <input
-                      type="password"
-                      value={formData.currentPassword}
-                      onChange={(e) => setFormData(prev => ({ ...prev, currentPassword: e.target.value }))}
-                      className="w-full px-4 py-3 bg-dark-bg-primary border border-dark-border rounded-lg focus:ring-2 focus:ring-dark-accent-primary focus:border-dark-accent-primary transition-all"
-                      placeholder="••••••••"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-dark-text-secondary mb-2">
-                        New Password
-                      </label>
-                      <input
-                        type="password"
-                        value={formData.newPassword}
-                        onChange={(e) => setFormData(prev => ({ ...prev, newPassword: e.target.value }))}
-                        className="w-full px-4 py-3 bg-dark-bg-primary border border-dark-border rounded-lg focus:ring-2 focus:ring-dark-accent-primary focus:border-dark-accent-primary transition-all"
-                        placeholder="••••••••"
-                        minLength={6}
-                      />
+                    <div className="text-center">
+                        <h2 className="text-xl font-bold text-white tracking-wide">{user?.name}</h2>
+                        <p className="text-xs text-cyan-400 font-mono tracking-widest uppercase">COMMANDER</p>
                     </div>
+                 </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-dark-text-secondary mb-2">
-                        Confirm New Password
-                      </label>
-                      <input
-                        type="password"
-                        value={formData.confirmNewPassword}
-                        onChange={(e) => setFormData(prev => ({ ...prev, confirmNewPassword: e.target.value }))}
-                        className="w-full px-4 py-3 bg-dark-bg-primary border border-dark-border rounded-lg focus:ring-2 focus:ring-dark-accent-primary focus:border-dark-accent-primary transition-all"
-                        placeholder="••••••••"
-                        minLength={6}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
+                 {/* Right Column: Form */}
+                 <div className="flex-1 w-full">
+                    <h1 className="text-2xl font-bold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
+                        PROFILE CONFIGURATION
+                    </h1>
 
-              {/* Submit Button */}
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="px-6 py-3 bg-dark-accent-primary hover:bg-dark-accent-secondary text-white font-medium rounded-lg transition-colors flex items-center space-x-2"
-                >
-                  {isLoading ? (
-                    <>
-                      <svg className="animate-spin h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      <span>Updating...</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span>Save Changes</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
+                    {error && (
+                        <div className="mb-6 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm flex items-center gap-2">
+                             <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                             {error}
+                        </div>
+                    )}
+                    {success && (
+                        <div className="mb-6 p-3 rounded-xl bg-green-500/10 border border-green-500/20 text-green-300 text-sm flex items-center gap-2">
+                            <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
+                            {success}
+                        </div>
+                    )}
+
+                    <form onSubmit={handleSubmit} className="space-y-5">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                             <div className="space-y-1">
+                                <label className="text-[10px] uppercase tracking-widest text-gray-400 pl-1">Name</label>
+                                <input 
+                                    type="text" 
+                                    value={formData.name}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 focus:outline-none transition-all placeholder-gray-600"
+                                    placeholder="Enter Name"
+                                />
+                             </div>
+                             <div className="space-y-1">
+                                <label className="text-[10px] uppercase tracking-widest text-gray-400 pl-1">Email</label>
+                                <input 
+                                    type="email" 
+                                    value={formData.email}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 focus:outline-none transition-all placeholder-gray-600"
+                                    placeholder="Enter Email"
+                                />
+                             </div>
+                        </div>
+
+                        <div className="pt-4 pb-2 border-t border-white/5">
+                            <h3 className="text-sm font-medium text-gray-300 mb-4">Security Protocol</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] uppercase tracking-widest text-gray-400 pl-1">Current Password</label>
+                                    <input 
+                                        type="password" 
+                                        value={formData.currentPassword}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 focus:outline-none transition-all placeholder-gray-600"
+                                        placeholder="••••••••"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] uppercase tracking-widest text-gray-400 pl-1">New Password</label>
+                                    <input 
+                                        type="password" 
+                                        value={formData.newPassword}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, newPassword: e.target.value }))}
+                                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 focus:outline-none transition-all placeholder-gray-600"
+                                        placeholder="••••••••"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end pt-4">
+                            <button
+                                type="submit"
+                                disabled={isLoading}
+                                className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-lg shadow-cyan-500/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            >
+                                {isLoading ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                        <span>UPDATING...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
+                                        <span>SAVE CHANGES</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </form>
+                 </div>
+             </div>
           </div>
-        </div>
+        </motion.div>
       </main>
     </div>
   );
 };
 
-export default Profile; 
+export default Profile;

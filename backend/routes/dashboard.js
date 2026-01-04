@@ -33,6 +33,9 @@ router.get('/', ensureApiAuth, async (req, res) => {
                     sender: req.user.email,
                     receiver: null,
                     userId: req.user._id,
+                    downloads: 5,
+                    active: true,
+                    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
                     downloadLink: `${process.env.APP_BASE_URL || 'http://localhost:3000'}/files/mock-uuid-1234567890`
                 },
                 {
@@ -47,6 +50,9 @@ router.get('/', ensureApiAuth, async (req, res) => {
                     sender: req.user.email,
                     receiver: 'colleague@example.com',
                     userId: req.user._id,
+                    downloads: 12,
+                    active: false,
+                    expiresAt: new Date(Date.now() - 1000), // Already expired
                     downloadLink: `${process.env.APP_BASE_URL || 'http://localhost:3000'}/files/mock-uuid-0987654321`
                 }
             ];
@@ -107,6 +113,10 @@ router.get('/', ensureApiAuth, async (req, res) => {
         
         // Map files to include formatted sizes
         const filesWithFormattedSizes = files.map(file => {
+            // Calculate if link is active based on expiresAt or 24 hours from creation
+            const expirationDate = file.expiresAt || new Date(new Date(file.createdAt).getTime() + 24 * 60 * 60 * 1000);
+            const isActive = new Date(expirationDate) > new Date();
+            
             return {
                 id: file._id,
                 filename: file.filename,
@@ -115,10 +125,15 @@ router.get('/', ensureApiAuth, async (req, res) => {
                 size: file.size,
                 formattedSize: formatBytes(file.size),
                 path: file.path,
+                cloudinaryId: file.cloudinaryId || null,
+                cloudinaryUrl: file.cloudinaryUrl || null,
                 createdAt: file.createdAt,
                 sender: file.sender,
                 receiver: file.receiver,
                 userId: file.userId,
+                downloads: file.downloads || 0,
+                active: isActive,
+                expiresAt: expirationDate,
                 downloadLink: `${process.env.APP_BASE_URL || 'http://localhost:3000'}/files/${file.uuid}`
             };
         });

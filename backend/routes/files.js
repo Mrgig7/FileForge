@@ -5,6 +5,7 @@ const { v4: uuid4 } = require('uuid');
 const { ensureApiAuth } = require('../middleware/auth');
 const fs = require('fs');
 const nodemailer = require('nodemailer');
+const { uploadFile, deleteFile } = require('../services/cloudinary');
 
 // Note: Using express-fileupload middleware from server.js
 // No need for multer configuration here
@@ -31,7 +32,7 @@ router.options('/', (req, res) => {
 });
 
 // @route   POST /api/files
-// @desc    Upload a file
+// @desc    Upload a file to Cloudinary
 // @access  Public (temporarily for CORS fix)
 router.post('/', async (req, res) => {
     // EMERGENCY CORS FIX - Set headers immediately
@@ -57,22 +58,7 @@ router.post('/', async (req, res) => {
     console.log('Content-Type:', req.headers['content-type']);
     console.log('Content-Length:', req.headers['content-length']);
     console.log('User authenticated:', !!req.user);
-    console.log('User details:', req.user ? { id: req.user._id, email: req.user.email } : 'No user');
-    console.log('Request method:', req.method);
-    console.log('Request URL:', req.url);
     console.log('Files object exists:', !!req.files);
-    console.log('Files object type:', typeof req.files);
-    console.log('Available files:', req.files ? Object.keys(req.files) : 'No files object');
-    console.log('Request body keys:', req.body ? Object.keys(req.body) : 'No body');
-    console.log('Express-fileupload middleware working:', !!req.files);
-    console.log('Raw req.files object:', req.files);
-
-    // Additional debugging for multipart data
-    if (req.headers['content-type'] && req.headers['content-type'].includes('multipart/form-data')) {
-        console.log('✅ Multipart form data detected');
-    } else {
-        console.log('❌ NOT multipart form data - Content-Type:', req.headers['content-type']);
-    }
 
     try {
         // Check if files are present in the request
@@ -142,35 +128,116 @@ router.post('/', async (req, res) => {
             }
         }
 
-        // Generate a unique filename
-        const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1E9)}${path.extname(file.name)}`;
+        // Generate a unique filename for Cloudinary
+        const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+        const fileExtension = path.extname(file.name).toLowerCase();
 
-        // Use /tmp directory for Vercel serverless environment
-        const uploadsDir = '/tmp/uploads';
-        const filePath = path.join(uploadsDir, uniqueName);
-
-        // Ensure uploads directory exists in /tmp
-        if (!fs.existsSync(uploadsDir)) {
-            fs.mkdirSync(uploadsDir, { recursive: true });
-            console.log('Created uploads directory:', uploadsDir);
+        // Get file buffer - express-fileupload may use temp files instead of in-memory buffer
+        let fileBuffer;
+        if (file.data && file.data.length > 0) {
+            // Use in-memory buffer if available
+            fileBuffer = file.data;
+            console.log('Using in-memory file buffer, size:', fileBuffer.length);
+        } else if (file.tempFilePath) {
+            // Read from temp file (when useTempFiles: true)
+            console.log('Reading from temp file:', file.tempFilePath);
+            fileBuffer = fs.readFileSync(file.tempFilePath);
+            console.log('Read file buffer from temp file, size:', fileBuffer.length);
+            // Clean up temp file after reading
+            try {
+                fs.unlinkSync(file.tempFilePath);
+            } catch (e) {
+                console.warn('Could not delete temp file:', e.message);
+            }
+        } else {
+            throw new Error('No file data available');
         }
 
-        // Move the file to uploads directory
-        console.log('Moving file to:', filePath);
-        await file.mv(filePath);
+        // Determine the correct resource_type based on file extension/mimetype
+        const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.ico'];
+        const videoExtensions = ['.mp4', '.mov', '.avi', '.wmv', '.webm', '.mkv', '.flv'];
+        
+        let resourceType = 'raw'; // Default for documents, archives, etc.
+        if (imageExtensions.includes(fileExtension) || file.mimetype?.startsWith('image/')) {
+            resourceType = 'image';
+        } else if (videoExtensions.includes(fileExtension) || file.mimetype?.startsWith('video/')) {
+            resourceType = 'video';
+        }
+        
+        console.log('Detected file type:', { 
+            extension: fileExtension, 
+            mimetype: file.mimetype, 
+            resourceType 
+        });
 
-        // Save file info to database
+        // Determine proper mimetype for base64 encoding
+        const mimeTypeMap = {
+            '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+            '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml',
+            '.mp4': 'video/mp4', '.mov': 'video/quicktime', '.avi': 'video/x-msvideo',
+            '.webm': 'video/webm', '.pdf': 'application/pdf'
+        };
+        const detectedMimetype = mimeTypeMap[fileExtension] || file.mimetype || 'application/octet-stream';
+
+        // IMPORTANT: Always use 'raw' resource type for reliability
+        // Cloudinary's 'image' type validation is too strict and rejects valid images
+        // Files uploaded as 'raw' can still be served via URL and viewed in browser
+        const finalResourceType = 'raw';
+
+        // Upload directly to Cloudinary using file buffer
+        console.log('Uploading to Cloudinary with resource_type:', finalResourceType);
+        const cloudinaryResult = await uploadFile(fileBuffer, {
+            folder: 'fileforge/files',
+            public_id: uniqueName,
+            resource_type: finalResourceType,
+            mimetype: detectedMimetype // Pass mimetype for proper base64 conversion
+        });
+
+        console.log('Cloudinary upload result:', cloudinaryResult);
+
+        // Parse security options from request body
+        const {
+            isEncrypted = false,
+            encryptionIV = null,
+            maxDownloads = null,
+            deleteAfterFirstAccess = false,
+            expiresAfter = '30d', // Default changed to 30 days
+            viewOnly = false
+        } = req.body;
+
+        // Calculate expiration time based on option
+        const expirationMap = {
+            '1h': 60 * 60 * 1000,
+            '6h': 6 * 60 * 60 * 1000,
+            '24h': 24 * 60 * 60 * 1000,
+            '7d': 7 * 24 * 60 * 60 * 1000,
+            '30d': 30 * 24 * 60 * 60 * 1000
+        };
+        const expiresAt = new Date(Date.now() + (expirationMap[expiresAfter] || expirationMap['30d']));
+
+        // Save file info to database with Cloudinary details
         const fileRecord = new File({
-            filename: uniqueName,
+            filename: uniqueName + fileExtension,
             originalName: file.name,
             uuid: uuid4(),
-            path: filePath,
+            path: null, // No longer using local path
+            cloudinaryId: cloudinaryResult.public_id,
+            cloudinaryUrl: cloudinaryResult.url,
             size: file.size,
-            userId: userId
+            userId: userId,
+            // Security & Privacy Options
+            isEncrypted: isEncrypted === 'true' || isEncrypted === true,
+            encryptionIV: encryptionIV,
+            maxDownloads: maxDownloads ? parseInt(maxDownloads, 10) : null,
+            deleteAfterFirstAccess: deleteAfterFirstAccess === 'true' || deleteAfterFirstAccess === true,
+            expiresAt: expiresAt,
+            viewOnly: viewOnly === 'true' || viewOnly === true
         });
 
         const savedFile = await fileRecord.save();
         console.log('File saved to database with uuid:', savedFile.uuid);
+        console.log('Cloudinary URL:', savedFile.cloudinaryUrl);
+        console.log('Expires at:', savedFile.expiresAt);
 
         // Return successful response
         return res.json({
@@ -181,6 +248,10 @@ router.post('/', async (req, res) => {
                 originalName: file.name,
                 size: savedFile.size,
                 userId: savedFile.userId,
+                isEncrypted: savedFile.isEncrypted,
+                viewOnly: savedFile.viewOnly,
+                expiresAt: savedFile.expiresAt,
+                cloudinaryUrl: savedFile.cloudinaryUrl,
                 downloadLink: `${process.env.APP_BASE_URL || 'http://localhost:3000'}/api/files/${savedFile.uuid}`
             }
         });
@@ -233,7 +304,7 @@ router.get('/user-files', ensureApiAuth, async (req, res) => {
 });
 
 // @route   GET /api/files/:uuid
-// @desc    Get file info and download
+// @desc    Get file info and download (redirects to Cloudinary)
 // @access  Public
 router.get('/:uuid', async (req, res) => {
     try {
@@ -243,16 +314,456 @@ router.get('/:uuid', async (req, res) => {
             return res.status(404).json({ error: 'File not found' });
         }
 
-        // Check if file exists on filesystem
-        if (!fs.existsSync(file.path)) {
+        // Check if file has a Cloudinary URL (new system) or local path (legacy)
+        const hasCloudinaryUrl = !!file.cloudinaryUrl;
+        const hasLocalFile = file.path && fs.existsSync(file.path);
+
+        if (!hasCloudinaryUrl && !hasLocalFile) {
             await File.deleteOne({ uuid: req.params.uuid });
             return res.status(404).json({ error: 'File not found' });
         }
 
+        // Check if file has expired
+        if (file.expiresAt && new Date() > file.expiresAt) {
+            console.log('File expired:', file.uuid);
+            // Delete expired file from Cloudinary
+            if (file.cloudinaryId) {
+                try {
+                    await deleteFile(file.cloudinaryId, file.cloudinaryUrl?.includes('/image/') ? 'image' : 'raw');
+                } catch (cloudErr) {
+                    console.error('Error deleting expired file from Cloudinary:', cloudErr);
+                }
+            }
+            // Delete from local filesystem if exists (legacy)
+            if (file.path && fs.existsSync(file.path)) {
+                try { fs.unlinkSync(file.path); } catch (e) { }
+            }
+            await File.deleteOne({ uuid: req.params.uuid });
+            return res.status(410).json({ error: 'This file has expired and is no longer available' });
+        }
+
+        // Check if max downloads limit reached
+        if (file.maxDownloads !== null && file.downloads >= file.maxDownloads) {
+            console.log('Max downloads reached:', file.uuid);
+            // Delete file from Cloudinary
+            if (file.cloudinaryId) {
+                try {
+                    await deleteFile(file.cloudinaryId, file.cloudinaryUrl?.includes('/image/') ? 'image' : 'raw');
+                } catch (cloudErr) {
+                    console.error('Error deleting max-download file from Cloudinary:', cloudErr);
+                }
+            }
+            if (file.path && fs.existsSync(file.path)) {
+                try { fs.unlinkSync(file.path); } catch (e) { }
+            }
+            await File.deleteOne({ uuid: req.params.uuid });
+            return res.status(410).json({ error: 'This file has reached its download limit and is no longer available' });
+        }
+
+        // Check if view-only mode (don't allow direct download)
+        if (file.viewOnly) {
+            return res.status(403).json({ 
+                error: 'This file is view-only and cannot be downloaded',
+                viewOnly: true,
+                previewUrl: `${process.env.APP_BASE_URL || 'http://localhost:3000'}/api/files/${file.uuid}/preview`
+            });
+        }
+
+        // Increment download count
+        file.downloads = (file.downloads || 0) + 1;
+        await file.save();
+
+        console.log(`File downloaded: ${file.uuid}, Downloads: ${file.downloads}/${file.maxDownloads || 'unlimited'}`);
+
+        // Handle delete after first access
+        if (file.deleteAfterFirstAccess) {
+            console.log('Delete after first access triggered:', file.uuid);
+            // Schedule deletion after response is sent
+            res.on('finish', async () => {
+                try {
+                    if (file.cloudinaryId) {
+                        await deleteFile(file.cloudinaryId, file.cloudinaryUrl?.includes('/image/') ? 'image' : 'raw');
+                    }
+                    if (file.path && fs.existsSync(file.path)) {
+                        fs.unlinkSync(file.path);
+                    }
+                    await File.deleteOne({ uuid: file.uuid });
+                    console.log('File deleted after first access:', file.uuid);
+                } catch (delErr) {
+                    console.error('Error deleting file after first access:', delErr);
+                }
+            });
+        }
+
+        // Handle max downloads reached after this download
+        if (file.maxDownloads !== null && file.downloads >= file.maxDownloads) {
+            console.log('This is the last download, file will be deleted:', file.uuid);
+            res.on('finish', async () => {
+                try {
+                    if (file.cloudinaryId) {
+                        await deleteFile(file.cloudinaryId, file.cloudinaryUrl?.includes('/image/') ? 'image' : 'raw');
+                    }
+                    if (file.path && fs.existsSync(file.path)) {
+                        fs.unlinkSync(file.path);
+                    }
+                    await File.deleteOne({ uuid: file.uuid });
+                    console.log('File deleted after reaching max downloads:', file.uuid);
+                } catch (delErr) {
+                    console.error('Error deleting file after max downloads:', delErr);
+                }
+            });
+        }
+
+        // Fetch from Cloudinary and send to client (new system)
+        if (hasCloudinaryUrl) {
+            console.log('Fetching file from Cloudinary:', file.cloudinaryUrl);
+            try {
+                const https = require('https');
+                const http = require('http');
+                
+                // Determine content type from file extension
+                const ext = path.extname(file.originalName || file.filename).toLowerCase();
+                const mimeTypes = {
+                    '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+                    '.gif': 'image/gif', '.webp': 'image/webp', '.pdf': 'application/pdf',
+                    '.mp4': 'video/mp4', '.mov': 'video/quicktime', '.webm': 'video/webm',
+                    '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg',
+                    '.txt': 'text/plain', '.json': 'application/json', '.xml': 'application/xml',
+                    '.zip': 'application/zip', '.rar': 'application/x-rar-compressed'
+                };
+                const contentType = mimeTypes[ext] || 'application/octet-stream';
+                
+                // Function to fetch with redirect handling and buffer collection
+                const fetchWithRedirects = (url, maxRedirects = 5) => {
+                    const fileUrl = new URL(url);
+                    const protocol = fileUrl.protocol === 'https:' ? https : http;
+                    
+                    protocol.get(url, (cloudinaryResponse) => {
+                        console.log('Cloudinary response status:', cloudinaryResponse.statusCode);
+                        
+                        // Handle redirects (301, 302, 307, 308)
+                        if ([301, 302, 307, 308].includes(cloudinaryResponse.statusCode)) {
+                            const redirectUrl = cloudinaryResponse.headers.location;
+                            console.log('Following redirect to:', redirectUrl);
+                            if (maxRedirects > 0 && redirectUrl) {
+                                return fetchWithRedirects(redirectUrl, maxRedirects - 1);
+                            } else {
+                                console.error('Too many redirects');
+                                return res.status(500).json({ error: 'Too many redirects' });
+                            }
+                        }
+                        
+                        if (cloudinaryResponse.statusCode !== 200) {
+                            console.error('Cloudinary fetch failed:', cloudinaryResponse.statusCode);
+                            return res.status(500).json({ error: 'Error fetching file from storage' });
+                        }
+                        
+                        // Collect data into buffer for reliable transfer
+                        const chunks = [];
+                        cloudinaryResponse.on('data', (chunk) => {
+                            chunks.push(chunk);
+                        });
+                        
+                        cloudinaryResponse.on('end', () => {
+                            const buffer = Buffer.concat(chunks);
+                            console.log('File fetched successfully, size:', buffer.length, 'bytes');
+                            
+                            // Set headers and send buffer
+                            res.setHeader('Content-Type', contentType);
+                            res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(file.originalName || file.filename)}"`);
+                            res.setHeader('Content-Length', buffer.length);
+                            res.send(buffer);
+                        });
+                        
+                        cloudinaryResponse.on('error', (err) => {
+                            console.error('Error reading Cloudinary stream:', err);
+                            return res.status(500).json({ error: 'Error reading file data' });
+                        });
+                    }).on('error', (err) => {
+                        console.error('Error fetching from Cloudinary:', err);
+                        return res.status(500).json({ error: 'Error fetching file from storage' });
+                    });
+                };
+                
+                fetchWithRedirects(file.cloudinaryUrl);
+                return;
+            } catch (fetchError) {
+                console.error('Cloudinary fetch error:', fetchError);
+                return res.status(500).json({ error: 'Error fetching file from storage' });
+            }
+        }
+
+        // Fallback to local file (legacy support)
         return res.download(file.path, file.originalName || file.filename);
     } catch (error) {
         console.error('Download error:', error);
         return res.status(500).json({ error: 'Error downloading file' });
+    }
+});
+
+// @route   GET /api/files/:uuid/info
+// @desc    Get file metadata (for frontend to check encryption, view-only status, etc.)
+// @access  Public
+router.get('/:uuid/info', async (req, res) => {
+    try {
+        const file = await File.findOne({ uuid: req.params.uuid });
+
+        if (!file) {
+            return res.status(404).json({ error: 'File not found' });
+        }
+
+        // Check if file exists (Cloudinary or local)
+        const hasCloudinaryUrl = !!file.cloudinaryUrl;
+        const hasLocalFile = file.path && fs.existsSync(file.path);
+
+        if (!hasCloudinaryUrl && !hasLocalFile) {
+            await File.deleteOne({ uuid: req.params.uuid });
+            return res.status(404).json({ error: 'File not found' });
+        }
+
+        // Check if file has expired
+        if (file.expiresAt && new Date() > file.expiresAt) {
+            // Clean up expired file
+            if (file.cloudinaryId) {
+                try {
+                    await deleteFile(file.cloudinaryId, file.cloudinaryUrl?.includes('/image/') ? 'image' : 'raw');
+                } catch (e) { console.error('Error deleting expired file from Cloudinary:', e); }
+            }
+            if (file.path && fs.existsSync(file.path)) {
+                try { fs.unlinkSync(file.path); } catch (e) { }
+            }
+            await File.deleteOne({ uuid: req.params.uuid });
+            return res.status(410).json({ error: 'This file has expired' });
+        }
+
+        // Check if max downloads limit already reached
+        if (file.maxDownloads !== null && file.downloads >= file.maxDownloads) {
+            if (file.cloudinaryId) {
+                try {
+                    await deleteFile(file.cloudinaryId, file.cloudinaryUrl?.includes('/image/') ? 'image' : 'raw');
+                } catch (e) { console.error('Error deleting max-download file from Cloudinary:', e); }
+            }
+            if (file.path && fs.existsSync(file.path)) {
+                try { fs.unlinkSync(file.path); } catch (e) { }
+            }
+            await File.deleteOne({ uuid: req.params.uuid });
+            return res.status(410).json({ error: 'This file has reached its download limit' });
+        }
+
+        // Determine file MIME type for preview
+        const mimeTypes = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png',
+            '.gif': 'image/gif',
+            '.webp': 'image/webp',
+            '.svg': 'image/svg+xml',
+            '.pdf': 'application/pdf',
+            '.mp4': 'video/mp4',
+            '.webm': 'video/webm',
+            '.mov': 'video/quicktime',
+            '.mp3': 'audio/mpeg',
+            '.wav': 'audio/wav',
+            '.ogg': 'audio/ogg',
+            '.txt': 'text/plain',
+            '.html': 'text/html',
+            '.css': 'text/css',
+            '.js': 'text/javascript',
+            '.json': 'application/json'
+        };
+        const ext = path.extname(file.originalName || file.filename).toLowerCase();
+        const mimeType = mimeTypes[ext] || 'application/octet-stream';
+
+        return res.json({
+            success: true,
+            file: {
+                uuid: file.uuid,
+                originalName: file.originalName || file.filename,
+                size: file.size,
+                formattedSize: formatBytes(file.size),
+                mimeType: mimeType,
+                isEncrypted: file.isEncrypted || false,
+                encryptionIV: file.encryptionIV || null,
+                viewOnly: file.viewOnly || false,
+                downloads: file.downloads || 0,
+                maxDownloads: file.maxDownloads,
+                deleteAfterFirstAccess: file.deleteAfterFirstAccess || false,
+                expiresAt: file.expiresAt,
+                createdAt: file.createdAt,
+                cloudinaryUrl: file.cloudinaryUrl || null
+            }
+        });
+    } catch (error) {
+        console.error('File info error:', error);
+        return res.status(500).json({ error: 'Error fetching file info' });
+    }
+});
+
+// @route   GET /api/files/:uuid/preview
+// @desc    Preview file in browser (redirects to Cloudinary for inline display)
+// @access  Public
+router.get('/:uuid/preview', async (req, res) => {
+    try {
+        const file = await File.findOne({ uuid: req.params.uuid });
+
+        if (!file) {
+            return res.status(404).json({ error: 'File not found' });
+        }
+
+        // Check if file exists (Cloudinary or local)
+        const hasCloudinaryUrl = !!file.cloudinaryUrl;
+        const hasLocalFile = file.path && fs.existsSync(file.path);
+
+        if (!hasCloudinaryUrl && !hasLocalFile) {
+            await File.deleteOne({ uuid: req.params.uuid });
+            return res.status(404).json({ error: 'File not found' });
+        }
+
+        // Check expiration
+        if (file.expiresAt && new Date() > file.expiresAt) {
+            if (file.cloudinaryId) {
+                try {
+                    await deleteFile(file.cloudinaryId, file.cloudinaryUrl?.includes('/image/') ? 'image' : 'raw');
+                } catch (e) { console.error('Error deleting expired file from Cloudinary:', e); }
+            }
+            if (file.path && fs.existsSync(file.path)) {
+                try { fs.unlinkSync(file.path); } catch (e) { }
+            }
+            await File.deleteOne({ uuid: req.params.uuid });
+            return res.status(410).json({ error: 'This file has expired' });
+        }
+
+        // Note: Preview does NOT increment download count
+
+        // Handle first access deletion for view-only files
+        if (file.deleteAfterFirstAccess) {
+            res.on('finish', async () => {
+                try {
+                    if (file.cloudinaryId) {
+                        await deleteFile(file.cloudinaryId, file.cloudinaryUrl?.includes('/image/') ? 'image' : 'raw');
+                    }
+                    if (file.path && fs.existsSync(file.path)) {
+                        fs.unlinkSync(file.path);
+                    }
+                    await File.deleteOne({ uuid: file.uuid });
+                    console.log('View-only file deleted after first access:', file.uuid);
+                } catch (delErr) {
+                    console.error('Error deleting view-only file:', delErr);
+                }
+            });
+        }
+
+        // Fetch from Cloudinary and stream for preview (new system)
+        if (hasCloudinaryUrl) {
+            console.log('Fetching file from Cloudinary for preview:', file.cloudinaryUrl);
+            try {
+                const https = require('https');
+                const http = require('http');
+                
+                // Determine content type from file extension
+                const ext = path.extname(file.originalName || file.filename).toLowerCase();
+                const mimeTypes = {
+                    '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+                    '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml',
+                    '.pdf': 'application/pdf', '.mp4': 'video/mp4', '.webm': 'video/webm',
+                    '.mov': 'video/quicktime', '.mp3': 'audio/mpeg', '.wav': 'audio/wav',
+                    '.ogg': 'audio/ogg', '.txt': 'text/plain', '.json': 'application/json'
+                };
+                const mimeType = mimeTypes[ext] || 'application/octet-stream';
+                
+                // Function to fetch with redirect handling
+                const fetchWithRedirects = (url, maxRedirects = 5) => {
+                    const fileUrl = new URL(url);
+                    const protocol = fileUrl.protocol === 'https:' ? https : http;
+                    
+                    protocol.get(url, (cloudinaryResponse) => {
+                        console.log('Cloudinary preview response status:', cloudinaryResponse.statusCode);
+                        
+                        // Handle redirects (301, 302, 307, 308)
+                        if ([301, 302, 307, 308].includes(cloudinaryResponse.statusCode)) {
+                            const redirectUrl = cloudinaryResponse.headers.location;
+                            console.log('Following preview redirect to:', redirectUrl);
+                            if (maxRedirects > 0 && redirectUrl) {
+                                return fetchWithRedirects(redirectUrl, maxRedirects - 1);
+                            } else {
+                                console.error('Too many preview redirects');
+                                return res.status(500).json({ error: 'Too many redirects' });
+                            }
+                        }
+                        
+                        if (cloudinaryResponse.statusCode !== 200) {
+                            console.error('Cloudinary preview fetch failed:', cloudinaryResponse.statusCode);
+                            return res.status(500).json({ error: 'Error fetching file for preview' });
+                        }
+                        
+                        // Collect data into buffer for reliable transfer
+                        const chunks = [];
+                        cloudinaryResponse.on('data', (chunk) => {
+                            chunks.push(chunk);
+                        });
+                        
+                        cloudinaryResponse.on('end', () => {
+                            const buffer = Buffer.concat(chunks);
+                            console.log('Preview file fetched, size:', buffer.length, 'bytes');
+                            
+                            // Set headers and send buffer
+                            res.setHeader('Content-Type', mimeType);
+                            res.setHeader('Content-Disposition', 'inline');
+                            res.setHeader('Content-Length', buffer.length);
+                            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+                            res.send(buffer);
+                        });
+                        
+                        cloudinaryResponse.on('error', (err) => {
+                            console.error('Error reading preview stream:', err);
+                            return res.status(500).json({ error: 'Error reading file data' });
+                        });
+                    }).on('error', (err) => {
+                        console.error('Error fetching preview from Cloudinary:', err);
+                        return res.status(500).json({ error: 'Error fetching file for preview' });
+                    });
+                };
+                
+                fetchWithRedirects(file.cloudinaryUrl);
+                return;
+            } catch (fetchError) {
+                console.error('Cloudinary preview fetch error:', fetchError);
+                return res.status(500).json({ error: 'Error fetching file for preview' });
+            }
+        }
+
+        // Fallback to local file streaming (legacy support)
+        const mimeTypes = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png',
+            '.gif': 'image/gif',
+            '.webp': 'image/webp',
+            '.svg': 'image/svg+xml',
+            '.pdf': 'application/pdf',
+            '.mp4': 'video/mp4',
+            '.webm': 'video/webm',
+            '.mov': 'video/quicktime',
+            '.mp3': 'audio/mpeg',
+            '.wav': 'audio/wav',
+            '.ogg': 'audio/ogg',
+            '.txt': 'text/plain'
+        };
+        const ext = path.extname(file.originalName || file.filename).toLowerCase();
+        const mimeType = mimeTypes[ext] || 'application/octet-stream';
+
+        res.setHeader('Content-Type', mimeType);
+        res.setHeader('Content-Disposition', 'inline');
+        res.setHeader('Content-Length', file.size);
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+
+        const fileStream = fs.createReadStream(file.path);
+        fileStream.pipe(res);
+    } catch (error) {
+        console.error('Preview error:', error);
+        return res.status(500).json({ error: 'Error previewing file' });
     }
 });
 
@@ -452,7 +963,7 @@ router.post('/send-email', async (req, res) => {
 });
 
 // @route   DELETE /api/files/:uuid
-// @desc    Delete a file by UUID
+// @desc    Delete a file by UUID (from Cloudinary and database)
 // @access  Private
 router.delete('/:uuid', ensureApiAuth, async (req, res) => {
     try {
@@ -467,14 +978,27 @@ router.delete('/:uuid', ensureApiAuth, async (req, res) => {
             return res.status(403).json({ error: 'You do not have permission to delete this file' });
         }
 
-        // Delete file from filesystem if it exists
-        try {
-            if (fs.existsSync(file.path)) {
-                fs.unlinkSync(file.path);
+        // Delete file from Cloudinary if it exists there
+        if (file.cloudinaryId) {
+            try {
+                const resourceType = file.cloudinaryUrl?.includes('/image/') ? 'image' : 
+                                     file.cloudinaryUrl?.includes('/video/') ? 'video' : 'raw';
+                await deleteFile(file.cloudinaryId, resourceType);
+                console.log('File deleted from Cloudinary:', file.cloudinaryId);
+            } catch (cloudErr) {
+                console.error('Error deleting file from Cloudinary:', cloudErr);
+                // Continue with database deletion even if Cloudinary deletion fails
             }
-        } catch (fsError) {
-            console.error('Error deleting physical file:', fsError);
-            // Continue with database deletion even if filesystem deletion fails
+        }
+
+        // Delete file from local filesystem if it exists (legacy support)
+        if (file.path && fs.existsSync(file.path)) {
+            try {
+                fs.unlinkSync(file.path);
+                console.log('File deleted from local filesystem:', file.path);
+            } catch (fsError) {
+                console.error('Error deleting physical file:', fsError);
+            }
         }
 
         // Delete file from database

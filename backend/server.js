@@ -13,14 +13,23 @@ require('dotenv').config();
 
 // EMERGENCY CORS MIDDLEWARE - ABSOLUTE HIGHEST PRIORITY
 app.use((req, res, next) => {
-    // ALWAYS set CORS headers for the specific frontend domain
-    res.header('Access-Control-Allow-Origin', 'https://fileforge-indol.vercel.app');
+    // Dynamically set CORS headers based on origin (support local dev and production)
+    const allowedOrigins = [
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+        'http://localhost:3000',
+        'https://fileforge-indol.vercel.app'
+    ];
+    const origin = req.headers.origin;
+    const allowOrigin = allowedOrigins.includes(origin) ? origin : 'https://fileforge-indol.vercel.app';
+    
+    res.header('Access-Control-Allow-Origin', allowOrigin);
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, X-File-Name, X-File-Size, X-File-Type');
     res.header('Access-Control-Expose-Headers', 'Authorization, Content-Length');
 
-    console.log(`🚨 EMERGENCY CORS headers ALWAYS set for: ${req.method} ${req.url} from ${req.headers.origin || 'no-origin'}`);
+    console.log(`🚨 EMERGENCY CORS headers set for origin: ${origin} -> allowing: ${allowOrigin}`);
 
     // Handle ALL OPTIONS requests immediately
     if (req.method === 'OPTIONS') {
