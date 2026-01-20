@@ -9,6 +9,7 @@ const flash = require('connect-flash');
 const passport = require('./config/passport');
 const jwt = require('jsonwebtoken');
 const fileUpload = require('express-fileupload');
+const cookieParser = require('cookie-parser');
 require('dotenv').config();
 
 // EMERGENCY CORS MIDDLEWARE - ABSOLUTE HIGHEST PRIORITY
@@ -135,6 +136,8 @@ app.use('/api', (req, res, next) => {
 
     next();
 });
+
+app.use(cookieParser());
 
 // Session configuration
 app.use(session({
@@ -275,8 +278,29 @@ app.post('/api/test-login', (req, res) => {
 
 app.use('/api/files', require('./routes/files'));
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/auth/v2', require('./routes/authSecure'));
+app.use('/api/uploads', require('./routes/uploads'));
+app.use('/api/share', require('./routes/share'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/profile', require('./routes/profile'));
+
+app.use('/health', require('./routes/health'));
+app.use('/api/admin', require('./routes/admin'));
+app.use('/api/usage', require('./routes/usage'));
+
+app.use('/api/workspaces', require('./routes/workspaces'));
+app.use('/api/files/:fileId/versions', require('./routes/versions'));
+app.use('/api/billing', require('./routes/billing'));
+
+app.use('/api', require('./routes/sso'));
+app.use('/api/me/sessions', require('./routes/sessions'));
+app.use('/api/admin/security', require('./routes/securityCenter'));
+app.use('/scim/v2', require('./routes/scim'));
+
+app.use('/api/uploads', require('./routes/chunkedUploads'));
+app.use('/metrics', require('./routes/metrics'));
+
+app.use('/api/p2p', require('./routes/webrtc'));
 
 // Add web routes for non-API access
 app.use('/auth', require('./routes/auth'));
@@ -430,6 +454,17 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '/views'));
 
+const getPublicAppBaseUrl = () => {
+    return (
+        process.env.FRONTEND_URL ||
+        process.env.CLIENT_URL ||
+        process.env.WEB_BASE_URL ||
+        process.env.PUBLIC_APP_URL ||
+        process.env.APP_BASE_URL ||
+        'http://localhost:5173'
+    );
+};
+
 // File download page route - shows a page with download button
 app.get('/files/:uuid', async (req, res) => {
     try {
@@ -441,26 +476,14 @@ app.get('/files/:uuid', async (req, res) => {
 
         if (!file) {
             console.log(`File not found for UUID: ${uuid}`);
-            return res.status(404).render('download', {
-                error: 'File not found or link has expired.',
-                uuid: null,
-                fileName: null,
-                fileSize: null,
-                downloadLink: null
-            });
+            return res.redirect(`${getPublicAppBaseUrl()}/files/${uuid}`);
         }
 
         // Check if file exists on filesystem
         const fs = require('fs');
-        if (!fs.existsSync(file.path)) {
+        if (!file.path || !fs.existsSync(file.path)) {
             console.log(`File not found on disk: ${file.path}`);
-            return res.status(404).render('download', {
-                error: 'File not found on server.',
-                uuid: null,
-                fileName: null,
-                fileSize: null,
-                downloadLink: null
-            });
+            return res.redirect(`${getPublicAppBaseUrl()}/files/${uuid}`);
         }
 
         // Format the file size for display
@@ -483,13 +506,7 @@ app.get('/files/:uuid', async (req, res) => {
         });
     } catch (error) {
         console.error('Download page error:', error);
-        return res.status(500).render('download', {
-            error: 'Something went wrong.',
-            uuid: null,
-            fileName: null,
-            fileSize: null,
-            downloadLink: null
-        });
+        return res.status(500).json({ error: 'Something went wrong.' });
     }
 });
 
@@ -509,9 +526,9 @@ app.get('/files/download/:uuid', async (req, res) => {
 
         // Check if file exists on filesystem
         const fs = require('fs');
-        if (!fs.existsSync(file.path)) {
+        if (!file.path || !fs.existsSync(file.path)) {
             console.log(`File not found on disk for download: ${file.path}`);
-            return res.status(404).send('File not found on disk');
+            return res.redirect(`/api/files/${uuid}`);
         }
 
         console.log(`Serving file download: ${file.originalName || file.filename}`);

@@ -129,7 +129,7 @@ export async function decryptFile(encryptedData, key, ivBase64, originalMimeType
  * @returns {string} Full share URL with encryption key
  */
 export function createShareLink(uuid, keyBase64, baseUrl = window.location.origin) {
-    return `${baseUrl}/download/${uuid}#key=${encodeURIComponent(keyBase64)}`;
+    return `${baseUrl}/files/${uuid}#key=${encodeURIComponent(keyBase64)}`;
 }
 
 /**

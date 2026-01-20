@@ -7,6 +7,17 @@ const fs = require('fs');
 const nodemailer = require('nodemailer');
 const { uploadFile, deleteFile } = require('../services/cloudinary');
 
+const getPublicAppBaseUrl = () => {
+    return (
+        process.env.FRONTEND_URL ||
+        process.env.CLIENT_URL ||
+        process.env.WEB_BASE_URL ||
+        process.env.PUBLIC_APP_URL ||
+        process.env.APP_BASE_URL ||
+        'http://localhost:5173'
+    );
+};
+
 // Note: Using express-fileupload middleware from server.js
 // No need for multer configuration here
 
@@ -809,7 +820,7 @@ router.post('/send', async (req, res) => {
         }
 
         // Construct the download link with full URL
-        const downloadLink = `${process.env.APP_BASE_URL}/files/${file.uuid}`;
+        const downloadLink = `${getPublicAppBaseUrl()}/files/${file.uuid}`;
         console.log('Generated download link:', downloadLink);
 
         // Import email services
@@ -839,7 +850,8 @@ router.post('/send', async (req, res) => {
                 emailFrom: correctedEmailFrom,
                 downloadLink,
                 size: formattedSize,
-                expires: '24 hours'
+                expires: '24 hours',
+                appBaseUrl: getPublicAppBaseUrl()
             })
         }).then(async (info) => {
             console.log('Email sent successfully:', info);
@@ -880,7 +892,7 @@ router.post('/send-email', async (req, res) => {
     }
 
     // Create download link with fallback for APP_BASE_URL
-    const baseUrl = process.env.APP_BASE_URL || 'http://localhost:3000';
+    const baseUrl = getPublicAppBaseUrl();
     const downloadLink = `${baseUrl}/files/${file.uuid}`;
 
     // Setup email data with fallback value for MAIL_USER

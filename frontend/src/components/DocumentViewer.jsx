@@ -30,38 +30,44 @@ const DocumentViewer = ({
 
   // Generate blob URL from decrypted blob or directly from URL
   useEffect(() => {
-    const loadContent = async () => {
-      setLoading(true);
-      setError(null);
+    let createdBlobUrl = null;
+    let cancelled = false;
 
+    setLoading(true);
+    setError(null);
+    setTextContent('');
+
+    const loadContent = async () => {
       try {
         if (decryptedBlob) {
-          // Use decrypted blob directly
-          const url = URL.createObjectURL(decryptedBlob);
-          setBlobUrl(url);
-        } else if (fileUrl) {
-          // For text/code files, fetch content
-          if (isTextFile(mimeType)) {
-            const response = await fetch(fileUrl);
-            const text = await response.text();
-            setTextContent(text);
-          }
-          setBlobUrl(fileUrl);
+          createdBlobUrl = URL.createObjectURL(decryptedBlob);
+          if (!cancelled) setBlobUrl(createdBlobUrl);
+          return;
         }
+
+        if (!fileUrl) return;
+
+        if (isTextFile(mimeType)) {
+          const response = await fetch(fileUrl);
+          const text = await response.text();
+          if (!cancelled) setTextContent(text);
+        }
+
+        if (!cancelled) setBlobUrl(fileUrl);
       } catch (err) {
         console.error('Error loading file:', err);
-        setError('Failed to load file content');
+        if (!cancelled) setError('Failed to load file content');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     loadContent();
 
-    // Cleanup blob URL on unmount
     return () => {
-      if (blobUrl && blobUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(blobUrl);
+      cancelled = true;
+      if (createdBlobUrl) {
+        URL.revokeObjectURL(createdBlobUrl);
       }
     };
   }, [fileUrl, decryptedBlob, mimeType]);
@@ -236,8 +242,8 @@ const DocumentViewer = ({
             <Page 
               pageNumber={currentPage} 
               scale={scale}
-              renderTextLayer={true}
-              renderAnnotationLayer={true}
+              renderTextLayer={false}
+              renderAnnotationLayer={false}
             />
           </Document>
         )}

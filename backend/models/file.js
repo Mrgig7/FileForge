@@ -4,20 +4,66 @@ const Schema = mongoose.Schema;
 const fileSchema = new Schema({
     filename: { type: String, required: true },
     originalName: { type: String, required: false },
-    path: { type: String, required: false }, // Now optional since files are stored in Cloudinary
-    cloudinaryId: { type: String, required: false }, // Cloudinary public ID for deletion
-    cloudinaryUrl: { type: String, required: false }, // Cloudinary secure URL for access
+    title: { type: String },
+    path: { type: String, required: false },
+    cloudinaryId: { type: String, required: false },
+    cloudinaryUrl: { type: String, required: false },
     size: { type: Number, required: true },
     uuid: { type: String, required: true },
     sender: { type: String, required: false },
     receiver: { type: String, required: false },
     downloads: { type: Number, default: 0 },
-    expiresAt: { type: Date, default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) }, // 30 days from creation
+    expiresAt: { type: Date, default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) },
+    
+    // Owner
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: false
     },
+    
+    workspaceId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Workspace',
+        default: null,
+        index: true
+    },
+    
+    currentVersionId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'FileVersion'
+    },
+    
+    region: { type: String, default: 'default' },
+
+    classification: {
+        type: String,
+        enum: ['PUBLIC', 'INTERNAL', 'CONFIDENTIAL', 'RESTRICTED'],
+        default: 'PUBLIC',
+        index: true
+    },
+
+    status: {
+        type: String,
+        enum: ['PENDING', 'SCANNING', 'READY', 'QUARANTINED', 'DELETED'],
+        default: 'PENDING',
+        index: true
+    },
+
+    scanResult: {
+        scannedAt: { type: Date },
+        clean: { type: Boolean },
+        threats: [{ type: String }],
+        scannerVersion: { type: String },
+        duration: { type: Number }
+    },
+
+    deletedAt: { type: Date, default: null, index: true },
+
+    checksum: { type: String },
+    mimeType: { type: String },
+    verifiedSize: { type: Number },
+    processedAt: { type: Date },
 
     // Client-Side Encryption (Zero-Knowledge Architecture)
     isEncrypted: { type: Boolean, default: false },
@@ -31,5 +77,8 @@ const fileSchema = new Schema({
     viewOnly: { type: Boolean, default: false },
     allowedPreviewTypes: { type: [String], default: ['image', 'pdf', 'video', 'audio'] }
 }, { timestamps: true });
+
+fileSchema.index({ status: 1, createdAt: 1 });
+fileSchema.index({ deletedAt: 1 }, { sparse: true });
 
 module.exports = mongoose.model('File', fileSchema);

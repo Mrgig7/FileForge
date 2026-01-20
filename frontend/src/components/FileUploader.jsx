@@ -53,7 +53,7 @@ const FileUploader = ({ onClose, onSuccess }) => {
     if (uploadedFileData.shareLink) {
       return uploadedFileData.shareLink;
     }
-    return `${window.location.origin}/download/${uploadedFileData.uuid}`;
+    return `${window.location.origin}/files/${uploadedFileData.uuid}`;
   };
 
   // Copy link to clipboard

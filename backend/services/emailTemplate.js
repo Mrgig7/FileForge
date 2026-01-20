@@ -1,4 +1,5 @@
-module.exports = ({ emailFrom, downloadLink, size, expires }) => {
+module.exports = ({ emailFrom, downloadLink, size, expires, appBaseUrl }) => {
+    const resolvedAppBaseUrl = appBaseUrl || process.env.FRONTEND_URL || process.env.APP_BASE_URL || 'http://localhost:5173';
     return `
         <!doctype html>
             <html>
@@ -174,7 +175,7 @@ module.exports = ({ emailFrom, downloadLink, size, expires }) => {
                             <tr>
                             <td class="content-block" style="font-family: sans-serif; vertical-align: top; padding-bottom: 10px; padding-top: 10px; font-size: 12px; color: #b1b5c3; text-align: center;">
                                 <span class="apple-link" style="color: #b1b5c3; font-size: 12px; text-align: center;">FileForge ©️ 2024</span>
-                                <br> Want to share a file? <a href="${process.env.APP_BASE_URL}" style="text-decoration: underline; color: #4361ee; font-size: 12px; text-align: center;">Try FileForge</a>
+                                <br> Want to share a file? <a href="${resolvedAppBaseUrl}" style="text-decoration: underline; color: #4361ee; font-size: 12px; text-align: center;">Try FileForge</a>
                             </td>
                             </tr>
                         </table>

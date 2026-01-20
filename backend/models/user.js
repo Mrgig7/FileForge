@@ -26,9 +26,16 @@ const UserSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['user', 'admin'],
-    default: 'user'
+    enum: ['USER', 'PRO', 'ADMIN', 'user', 'admin'],
+    default: 'USER'
   },
+
+  plan: {
+    type: String,
+    enum: ['FREE', 'PRO', 'ADMIN'],
+    default: 'FREE'
+  },
+
   storageLimit: {
     type: Number,
     default: 1024 * 1024 * 100 // 100MB default storage limit
@@ -37,6 +44,16 @@ const UserSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+
+  dailyShareCount: { type: Number, default: 0 },
+  dailyShareResetAt: { type: Date },
+  dailyUploadCount: { type: Number, default: 0 },
+  dailyUploadResetAt: { type: Date },
+
+  disabled: { type: Boolean, default: false },
+  disabledAt: { type: Date },
+  disabledReason: { type: String },
+
   profilePic: {
     type: String,
     default: null

@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import Header from '../components/Header';
 import AuthLayout from '../components/AuthLayout';
+import CaptchaWidget, { useCaptcha } from '../components/CaptchaWidget';
 
 // API base URL from environment or fallback to production URL
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fileforge-backend.vercel.app/api';
@@ -16,6 +17,17 @@ const Login = () => {
   const { login, isAuthenticated } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // CAPTCHA state management
+  const {
+    captchaRequired,
+    captchaConfig,
+    captchaToken,
+    handleCaptchaRequired,
+    handleCaptchaSuccess,
+    resetCaptcha,
+    getCaptchaPayload
+  } = useCaptcha();
 
   // Get the return URL from query params or default to dashboard
   const searchParams = new URLSearchParams(location.search);
@@ -72,10 +84,10 @@ const Login = () => {
     setWarpSpeed(20); // Speed up tunnel on submit
 
     try {
-      // Construct the login URL using API_BASE_URL
+      // Use v2 auth endpoint for CAPTCHA support
       const loginUrl = API_BASE_URL.endsWith('/api')
-        ? `${API_BASE_URL}/auth/login`
-        : `${API_BASE_URL}/api/auth/login`;
+        ? `${API_BASE_URL}/auth/v2/login`
+        : `${API_BASE_URL}/api/auth/v2/login`;
 
       console.log(`Sending login request to: ${loginUrl}`);
 
@@ -85,7 +97,11 @@ const Login = () => {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ 
+          email, 
+          password,
+          ...getCaptchaPayload() // Include captcha token if present
+        }),
         credentials: 'include'
       });
 
@@ -96,17 +112,30 @@ const Login = () => {
         throw new Error(`Server returned non-JSON response`);
       }
 
+      const data = await response.json();
+      
+      // Handle CAPTCHA_REQUIRED response
+      if (data.code === 'CAPTCHA_REQUIRED') {
+        handleCaptchaRequired(data);
+        setError('Please complete the security verification below.');
+        setWarpSpeed(1);
+        setIsLoading(false);
+        return;
+      }
+
       if (!response.ok) {
-        const data = await response.json().catch(() => ({ error: 'Failed to connect to server' }));
         throw new Error(data.error || `Login failed: ${response.status}`);
       }
 
-      const data = await response.json();
-
-      if (!data.token) {
+      // v2 endpoint returns accessToken instead of token
+      const token = data.accessToken || data.token;
+      if (!token) {
         throw new Error('No token received from server');
       }
 
+      // Reset CAPTCHA state on success
+      resetCaptcha();
+      
       // Success Ritual
       setIsWarping(true); // Trigger warp flash
       setWarpSpeed(50);   // Max speed
@@ -118,8 +147,8 @@ const Login = () => {
             name: email.split('@')[0],
             email: email
         };
-        localStorage.setItem('token', data.token);
-        login(userData, data.token);
+        localStorage.setItem('token', token);
+        login(userData, token);
         navigate(returnUrl);
       }, 1500);
 
@@ -175,12 +204,21 @@ const Login = () => {
                 />
             </div>
 
+            {/* CAPTCHA Widget - shown after failed login attempts */}
+            {captchaRequired && (
+                <CaptchaWidget
+                    config={captchaConfig}
+                    onSuccess={handleCaptchaSuccess}
+                    onError={(err) => console.error('CAPTCHA error:', err)}
+                />
+            )}
+
             <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || (captchaRequired && !captchaToken)}
                 className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-500/20 transition-all transform hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed"
             >
-                {isLoading ? 'Initiating Uplink...' : 'Engage'}
+                {isLoading ? 'Initiating Uplink...' : captchaRequired && !captchaToken ? 'Complete Verification' : 'Engage'}
             </button>
         </form>
 

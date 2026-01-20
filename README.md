@@ -344,6 +344,209 @@ FileForge/
 
 ---
 
+## 🏗️ Architecture
+
+### System Overview
+
+```mermaid
+graph TB
+    subgraph Client
+        FE[React Frontend]
+        P2P[WebRTC P2P]
+    end
+    
+    subgraph API Layer
+        LB[Load Balancer]
+        API[Express API]
+        WS[WebSocket Signaling]
+    end
+    
+    subgraph Queue System
+        REDIS[(Redis)]
+        BQ[BullMQ Workers]
+    end
+    
+    subgraph Storage
+        MONGO[(MongoDB)]
+        CDN[Cloudinary CDN]
+    end
+    
+    subgraph Security
+        CLAM[ClamAV Scanner]
+        CAPTCHA[mCaptcha PoW]
+    end
+    
+    subgraph Observability
+        PROM[Prometheus]
+        GRAF[Grafana]
+        TEMPO[Tempo/Jaeger]
+    end
+    
+    FE --> LB
+    P2P <--> WS
+    P2P -.->|fallback| FE
+    LB --> API
+    API --> REDIS
+    API --> MONGO
+    API --> CDN
+    BQ --> CLAM
+    BQ --> MONGO
+    REDIS --> BQ
+    API --> PROM
+    PROM --> GRAF
+    API -.->|OTLP| TEMPO
+```
+
+### Upload Flow (Sequence Diagram)
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as API
+    participant R as Redis
+    participant Q as BullMQ
+    participant CDN as Cloudinary
+    participant DB as MongoDB
+    participant SC as ClamAV
+    
+    C->>A: POST /chunked-uploads/init
+    A->>DB: Create UploadSession
+    A->>C: Return sessionId
+    
+    loop For each chunk
+        C->>A: POST /chunked-uploads/chunk
+        A->>A: Verify chunk hash
+        A->>R: Store chunk
+        A->>C: Chunk accepted
+    end
+    
+    C->>A: POST /chunked-uploads/complete
+    A->>A: Merge chunks
+    A->>A: Verify file hash
+    A->>CDN: Upload to Cloudinary
+    A->>Q: Queue scan job
+    A->>DB: Create File record
+    A->>C: Return file metadata
+    
+    Q->>SC: Scan for malware
+    SC->>Q: Scan result
+    Q->>DB: Update scan status
+```
+
+### Download Flow (Share Link)
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as API
+    participant DB as MongoDB
+    participant CDN as Cloudinary
+    
+    C->>A: GET /share/:token?sig=xxx&exp=xxx
+    A->>A: Verify HMAC signature
+    A->>A: Check expiry
+    A->>DB: Find ShareLink
+    A->>A: Check password (if set)
+    A->>A: Check download limit
+    A->>A: Check IP throttle
+    A->>DB: Log access
+    A->>CDN: Generate signed URL
+    A->>C: Redirect to CDN
+    CDN->>C: Stream file
+```
+
+---
+
+## 🔐 Production Security Features
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **JWT + Refresh Tokens** | Short-lived access tokens, long-lived httpOnly refresh cookies | ✅ |
+| **Token Rotation** | Detect token reuse and revoke entire session family | ✅ |
+| **RBAC** | Role-based access (USER, PRO, ADMIN) with limits | ✅ |
+| **Rate Limiting** | Per-IP and per-user with Redis backing | ✅ |
+| **Brute Force Protection** | Lockout after 5 failed attempts + CAPTCHA | ✅ |
+| **mCaptcha Integration** | Open-source PoW CAPTCHA after failed logins | ✅ |
+| **Share Link Security** | HMAC signatures, expiry, password, download limits | ✅ |
+| **Field-Level Encryption** | AES-256-GCM for sensitive metadata | ✅ |
+| **Malware Scanning** | ClamAV async scanning queue | ✅ |
+| **Audit Logs** | Hash-chained tamper-evident logs | ✅ |
+| **P2P Transfer** | WebRTC with automatic cloud fallback | ✅ |
+
+📄 **Full threat model**: [docs/threat-model.md](docs/threat-model.md)
+
+---
+
+## 📊 Observability
+
+### Prometheus Metrics
+
+The `/api/metrics` endpoint exposes:
+- `http_request_duration_seconds` - Request latency histogram
+- `uploads_total` - Upload counter by status
+- `downloads_total` - Download counter
+- `rate_limit_hits_total` - Rate limiting events
+- `active_sessions` - Current active sessions
+
+### Distributed Tracing
+
+OpenTelemetry integration with Tempo/Jaeger:
+
+```bash
+# Enable in .env
+OTEL_TRACING_ENABLED=true
+OTEL_EXPORTER_URL=http://localhost:4318/v1/traces
+```
+
+### Structured Logging
+
+Pino JSON logging with request correlation:
+
+```javascript
+// Automatic log format
+{"level":30,"time":1705789200000,"requestId":"abc123","userId":"user_1","msg":"File uploaded"}
+```
+
+📊 **Grafana setup**: [docs/grafana/README.md](docs/grafana/README.md)
+
+---
+
+## 🚀 CI/CD Pipeline
+
+GitHub Actions workflows in `.github/workflows/`:
+
+| Workflow | Trigger | Jobs |
+|----------|---------|------|
+| `backend-ci.yml` | PR/push to `backend/**` | Lint → Test → Security Audit → Build |
+| `frontend-ci.yml` | PR/push to `frontend/**` | Lint → Build → Test → Lighthouse |
+
+### Running Tests Locally
+
+```bash
+# Backend tests
+cd backend
+npm test
+
+# Frontend tests
+cd frontend
+npm test
+```
+
+### Load Testing
+
+```bash
+# Install k6
+choco install k6  # Windows
+
+# Run auth load test
+cd load-tests
+k6 run auth-flow.js
+```
+
+📦 **Load test scripts**: [load-tests/README.md](load-tests/README.md)
+
+---
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

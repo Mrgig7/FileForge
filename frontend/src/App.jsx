@@ -1,21 +1,21 @@
-import { useState, useEffect, useContext } from 'react'
+import { useState, useEffect, useContext, Suspense, lazy } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import './App.css'
-import ApiTest from './ApiTest'
 
-// Components
+// Components - Loading always eager loaded for fallback
 import Loading from './components/Loading'
 
-// Pages
-import Home from './pages/Home'
-import Login from './pages/Login'
-import Register from './pages/Register'
-import Dashboard from './pages/Dashboard'
-import FileDetails from './pages/FileDetails'
-import ShareFile from './pages/ShareFile'
-import DownloadFile from './pages/DownloadFile'
-import NotFound from './pages/NotFound'
-import Profile from './pages/Profile'
+// Lazy loaded pages for code splitting
+const Home = lazy(() => import('./pages/Home'))
+const Login = lazy(() => import('./pages/Login'))
+const Register = lazy(() => import('./pages/Register'))
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const FileDetails = lazy(() => import('./pages/FileDetails'))
+const ShareFile = lazy(() => import('./pages/ShareFile'))
+const DownloadFile = lazy(() => import('./pages/DownloadFile'))
+const NotFound = lazy(() => import('./pages/NotFound'))
+const Profile = lazy(() => import('./pages/Profile'))
+const ApiTest = lazy(() => import('./ApiTest'))
 
 // Context
 import { AuthProvider, AuthContext } from './context/AuthContext'
@@ -70,49 +70,51 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <div className="app-container w-full min-h-screen bg-dark-bg-primary text-dark-text-primary">
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={
-              <PublicOnlyRoute>
-                <Login />
-              </PublicOnlyRoute>
-            } />
-            <Route path="/register" element={
-              <PublicOnlyRoute>
-                <Register />
-              </PublicOnlyRoute>
-            } />
-            <Route path="/files/:uuid" element={<DownloadFile />} />
-            
-            {/* Protected Routes */}
-            <Route path="/dashboard" element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/profile" element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            } />
-            <Route path="/dashboard/file/:id" element={
-              <ProtectedRoute>
-                <FileDetails />
-              </ProtectedRoute>
-            } />
-            <Route path="/share" element={
-              <ProtectedRoute>
-                <ShareFile />
-              </ProtectedRoute>
-            } />
-            
-            {/* Not Found */}
-            <Route path="*" element={<NotFound />} />
+          <Suspense fallback={<Loading />}>
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/" element={<Home />} />
+              <Route path="/login" element={
+                <PublicOnlyRoute>
+                  <Login />
+                </PublicOnlyRoute>
+              } />
+              <Route path="/register" element={
+                <PublicOnlyRoute>
+                  <Register />
+                </PublicOnlyRoute>
+              } />
+              <Route path="/files/:uuid" element={<DownloadFile />} />
+              
+              {/* Protected Routes */}
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/profile" element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              } />
+              <Route path="/dashboard/file/:id" element={
+                <ProtectedRoute>
+                  <FileDetails />
+                </ProtectedRoute>
+              } />
+              <Route path="/share" element={
+                <ProtectedRoute>
+                  <ShareFile />
+                </ProtectedRoute>
+              } />
+              
+              {/* Not Found */}
+              <Route path="*" element={<NotFound />} />
 
-            {/* Add this near the top of your routes */}
-            <Route path="/api-test" element={<ApiTest />} />
-          </Routes>
+              {/* API Test Route */}
+              <Route path="/api-test" element={<ApiTest />} />
+            </Routes>
+          </Suspense>
         </div>
       </AuthProvider>
     </BrowserRouter>
