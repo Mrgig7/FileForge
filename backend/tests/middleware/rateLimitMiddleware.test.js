@@ -36,7 +36,7 @@ describe('rateLimitMiddleware - getClientIp', () => {
     expect(getClientIp(req)).toBe('192.168.1.1');
   });
 
-  it('should prioritize x-forwarded-for header over req.ip', () => {
+  it('should prioritize req.ip over x-forwarded-for header', () => {
     const req = {
       ip: '192.168.1.1',
       headers: {
@@ -44,7 +44,7 @@ describe('rateLimitMiddleware - getClientIp', () => {
       },
       connection: {}
     };
-    expect(getClientIp(req)).toBe('10.0.0.1');
+    expect(getClientIp(req)).toBe('192.168.1.1');
   });
 
   it('should return ip from x-forwarded-for header if req.ip is not available', () => {

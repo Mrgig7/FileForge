@@ -25,6 +25,7 @@
     "passport-local": "^1.0.0",
     "pino": "^8.17.0",
     "pino-http": "^9.0.0",
+    "rate-limiter-flexible": "^5.0.0",
     "uuid": "^9.0.1"
   },
   "name": "fileforge_api",
