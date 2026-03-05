@@ -104,9 +104,17 @@ describe('Audit Log Hash Chain', () => {
     });
     
     it('should return valid for empty logs', async () => {
-      // Mock empty workspace
+      // Mock AuditLog.find to avoid DB connection timeout
+      const mockFind = jest.spyOn(AuditLog, 'find').mockReturnValue({
+        sort: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockResolvedValue([])
+      });
+
       const result = await AuditLog.verifyChain('000000000000000000000000');
       expect(result.valid).toBe(true);
+
+      mockFind.mockRestore();
     });
   });
 });
