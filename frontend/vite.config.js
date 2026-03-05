@@ -13,6 +13,10 @@ export default defineConfig({
       }
     }
   },
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/tests/setup.js'],
+  },
   build: {
     outDir: 'dist',
     sourcemap: false, // Disable for production (smaller bundle)
