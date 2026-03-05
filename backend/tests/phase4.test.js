@@ -19,6 +19,26 @@ describe('SSO System', () => {
   const IdentityProvider = require('../models/IdentityProvider');
   
   describe('IdentityProvider Model', () => {
+
+    it('should correctly decrypt a previously encrypted secret', () => {
+      const secret = 'another-secret-123';
+      const encrypted = IdentityProvider.encrypt(secret);
+      const decrypted = IdentityProvider.decrypt(encrypted);
+      expect(decrypted).toBe(secret);
+    });
+
+    it('should return the original text for empty or falsy values', () => {
+      expect(IdentityProvider.decrypt(null)).toBeNull();
+      expect(IdentityProvider.decrypt(undefined)).toBeUndefined();
+      expect(IdentityProvider.decrypt('')).toBe('');
+    });
+
+    it('should return the original text for incorrectly formatted values (no colon)', () => {
+      const invalidText = 'invalid-encrypted-text-without-colon';
+      const result = IdentityProvider.decrypt(invalidText);
+      expect(result).toBe(invalidText);
+    });
+
     it('should encrypt client secret', () => {
       const secret = 'test-secret-12345';
       const encrypted = IdentityProvider.encrypt(secret);
