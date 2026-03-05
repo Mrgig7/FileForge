@@ -69,7 +69,7 @@ const sessionSchema = new Schema({
 // Indexes
 sessionSchema.index({ userId: 1, revokedAt: 1 });
 sessionSchema.index({ createdAt: -1 });
-sessionSchema.;
+
 
 // Methods
 sessionSchema.methods.isActive = function() {

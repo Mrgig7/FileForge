@@ -91,7 +91,6 @@ const approvalRequestSchema = new Schema({
 // Indexes
 approvalRequestSchema.index({ workspaceId: 1, status: 1 });
 approvalRequestSchema.index({ requestedBy: 1 });
-approvalRequestSchema.;
 
 // Statics
 approvalRequestSchema.statics.ACTION_TYPES = ACTION_TYPES;
