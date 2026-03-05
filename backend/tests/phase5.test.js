@@ -95,6 +95,27 @@ describe('ChunkStore', () => {
 });
 
 describe('Rate Limiting', () => {
+jest.mock('rate-limiter-flexible', () => ({
+  RateLimiterRedis: class {
+    consume() { return Promise.resolve(); }
+    get() { return Promise.resolve(null); }
+    delete() { return Promise.resolve(); }
+  },
+  RateLimiterMemory: class {
+    consume() { return Promise.resolve(); }
+    get() { return Promise.resolve(null); }
+    delete() { return Promise.resolve(); }
+  }
+}), { virtual: true });
+jest.mock('ioredis', () => {
+  return class Redis {
+    constructor() {}
+  };
+}, { virtual: true });
+jest.mock('../models/SecurityEvent', () => ({
+  logBruteForce: jest.fn()
+}), { virtual: true });
+
   const rateLimiter = require('../middleware/rateLimitMiddleware');
   
   describe('Helper functions', () => {
