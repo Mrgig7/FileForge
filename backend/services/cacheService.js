@@ -35,7 +35,9 @@ const DEFAULT_TTL = 5 * 60;  // 5 minutes
  */
 function generateETag(data) {
   const content = typeof data === 'string' ? data : JSON.stringify(data);
-  return crypto.createHash('md5').update(content).digest('hex');
+  const hash = crypto.createHash('md5');
+  hash.update(content);
+  return `"${hash.digest('hex')}"`;
 }
 
 /**
@@ -48,7 +50,7 @@ async function set(key, value, ttl = DEFAULT_TTL) {
     const cacheKey = `${CACHE_PREFIX}${key}`;
     const data = JSON.stringify({
       value,
-      etag: generateETag(value),
+      etag: generateETag(value).replace(/"/g, ''), // Keep backward compatibility for internal storage if needed, or adjust
       cachedAt: Date.now()
     });
     
@@ -135,12 +137,14 @@ function cacheMiddleware({ keyGenerator, ttl = DEFAULT_TTL, revalidate = false }
     
     if (cached) {
       // Check ETag match
-      if (ifNoneMatch && ifNoneMatch === `"${cached.etag}"`) {
+      // cached.etag might not have quotes if stored before change, handle carefully
+      const cachedEtag = cached.etag.startsWith('"') ? cached.etag : `"${cached.etag}"`;
+      if (ifNoneMatch && ifNoneMatch === cachedEtag) {
         return res.status(304).end();
       }
       
       // Return cached response
-      res.set('ETag', `"${cached.etag}"`);
+      res.set('ETag', cachedEtag);
       res.set('X-Cache', 'HIT');
       res.set('Cache-Control', `public, max-age=${ttl}`);
       
@@ -157,7 +161,7 @@ function cacheMiddleware({ keyGenerator, ttl = DEFAULT_TTL, revalidate = false }
         set(cacheKey, data, ttl).catch(() => {});
         
         const etag = generateETag(data);
-        res.set('ETag', `"${etag}"`);
+        res.set('ETag', etag); // generateETag now includes quotes
         res.set('X-Cache', 'MISS');
         res.set('Cache-Control', `public, max-age=${ttl}`);
       }
