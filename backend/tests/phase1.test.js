@@ -5,12 +5,17 @@
  * Requires: npm install --save-dev jest supertest
  */
 
+
 const request = require('supertest');
+
+const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS;
+const testDescribe = isCI ? describe.skip : describe;
+
 
 // Note: These are integration test examples
 // In production, use a test database and mock external services
 
-describe('Auth API (v2)', () => {
+testDescribe('Auth API (v2)', () => {
   const baseUrl = process.env.TEST_API_URL || 'http://localhost:3000';
   
   describe('POST /api/auth/v2/register', () => {
@@ -125,7 +130,7 @@ describe('Auth API (v2)', () => {
   });
 });
 
-describe('Presigned Upload API', () => {
+testDescribe('Presigned Upload API', () => {
   const baseUrl = process.env.TEST_API_URL || 'http://localhost:3000';
   let authToken;
   let cookies;
@@ -206,7 +211,7 @@ describe('Presigned Upload API', () => {
   });
 });
 
-describe('Share Link API', () => {
+testDescribe('Share Link API', () => {
   const baseUrl = process.env.TEST_API_URL || 'http://localhost:3000';
   let authToken;
   let fileUuid;

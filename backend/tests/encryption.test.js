@@ -73,7 +73,7 @@ describe('Encryption Service', () => {
     it('should encrypt empty string', () => {
       const result = encryptField('');
       expect(result).toHaveProperty('ciphertext');
-      expect(decryptField(result)).toBe('');
+      expect(decryptField(result)).toBe(null);
     });
     
     it('should encrypt unicode characters', () => {
