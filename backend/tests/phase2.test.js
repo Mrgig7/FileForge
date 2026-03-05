@@ -96,7 +96,7 @@ describe('Queue System', () => {
     it('should create post-upload job', async () => {
       // Only run if Redis is available
       try {
-        const job = await addPostUploadJob('test-file-id-123');
+        const job = await addPostUploadJob('test_file_id_123');
         expect(job).toBeDefined();
         expect(job.id).toBeDefined();
       } catch (err) {

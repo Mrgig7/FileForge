@@ -99,7 +99,7 @@ async function addJob(queueName, jobName, data, opts = {}) {
 async function addPostUploadJob(fileId, options = {}) {
   return addJob(QUEUE_NAMES.POST_UPLOAD, 'process-upload', {
     fileId: fileId.toString(),
-    idempotencyKey: `post-upload:${fileId}`,
+    idempotencyKey: `post-upload-${fileId}`,
     ...options
   });
 }
