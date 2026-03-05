@@ -55,12 +55,10 @@ const subscriptionSchema = new Schema({
   userId: {
     type: Schema.Types.ObjectId,
     ref: 'User',
-    index: true
   },
   workspaceId: {
     type: Schema.Types.ObjectId,
     ref: 'Workspace',
-    index: true
   },
   
   // Plan info
