@@ -96,10 +96,13 @@ const consecutiveFailsLimiter = createRateLimiter({
  * Get client IP (handles proxies)
  */
 function getClientIp(req) {
-  return req.ip || 
-         req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
-         req.connection?.remoteAddress ||
-         'unknown';
+  const xForwardedFor = req.headers['x-forwarded-for'];
+  if (xForwardedFor) {
+    // Get the first IP in the list
+    return xForwardedFor.split(',')[0].trim();
+  }
+
+  return req.ip || req.connection.remoteAddress || 'unknown';
 }
 
 /**
