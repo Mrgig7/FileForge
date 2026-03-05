@@ -14,7 +14,8 @@
 const request = require('supertest');
 
 describe('SSO System', () => {
-  const baseUrl = process.env.TEST_API_URL || 'http://localhost:3000';
+  const app = require('../server.js');
+  const baseUrl = process.env.TEST_API_URL || app;
   
   const IdentityProvider = require('../models/IdentityProvider');
   

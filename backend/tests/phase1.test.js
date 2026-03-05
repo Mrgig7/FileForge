@@ -11,7 +11,8 @@ const request = require('supertest');
 // In production, use a test database and mock external services
 
 describe('Auth API (v2)', () => {
-  const baseUrl = process.env.TEST_API_URL || 'http://localhost:3000';
+  const app = require('../server.js');
+  const baseUrl = process.env.TEST_API_URL || app;
   
   describe('POST /api/auth/v2/register', () => {
     it('should register a new user', async () => {
@@ -126,7 +127,8 @@ describe('Auth API (v2)', () => {
 });
 
 describe('Presigned Upload API', () => {
-  const baseUrl = process.env.TEST_API_URL || 'http://localhost:3000';
+  const app = require('../server.js');
+  const baseUrl = process.env.TEST_API_URL || app;
   let authToken;
   let cookies;
   
@@ -207,7 +209,8 @@ describe('Presigned Upload API', () => {
 });
 
 describe('Share Link API', () => {
-  const baseUrl = process.env.TEST_API_URL || 'http://localhost:3000';
+  const app = require('../server.js');
+  const baseUrl = process.env.TEST_API_URL || app;
   let authToken;
   let fileUuid;
   

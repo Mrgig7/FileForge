@@ -604,8 +604,11 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-app.listen(PORT, () => {
-    console.log(`API server running on port ${PORT}`);
-    console.log(`Frontend URL: ${process.env.ALLOWED_CLIENTS}`);
-    console.log(`Backend URL: ${process.env.APP_BASE_URL}`);
-});
+if (process.env.NODE_ENV !== 'test') {
+    app.listen(PORT, () => {
+        console.log(`API server running on port ${PORT}`);
+        console.log(`Frontend URL: ${process.env.ALLOWED_CLIENTS}`);
+        console.log(`Backend URL: ${process.env.APP_BASE_URL}`);
+    });
+}
+module.exports = app;

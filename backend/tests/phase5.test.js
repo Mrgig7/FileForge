@@ -12,7 +12,8 @@
 const request = require('supertest');
 
 describe('Chunked Uploads', () => {
-  const baseUrl = process.env.TEST_API_URL || 'http://localhost:3000';
+  const app = require('../server.js');
+  const baseUrl = process.env.TEST_API_URL || app;
   const UploadSession = require('../models/UploadSession');
   const UploadChunk = require('../models/UploadChunk');
   
@@ -143,7 +144,8 @@ describe('Cache Service', () => {
 });
 
 describe('Prometheus Metrics', () => {
-  const baseUrl = process.env.TEST_API_URL || 'http://localhost:3000';
+  const app = require('../server.js');
+  const baseUrl = process.env.TEST_API_URL || app;
   
   describe('GET /metrics', () => {
     it('should return prometheus format', async () => {
@@ -159,7 +161,8 @@ describe('Prometheus Metrics', () => {
 });
 
 describe('WebRTC Signaling', () => {
-  const baseUrl = process.env.TEST_API_URL || 'http://localhost:3000';
+  const app = require('../server.js');
+  const baseUrl = process.env.TEST_API_URL || app;
   
   describe('Room Management', () => {
     it('should require auth for room creation', async () => {

@@ -13,7 +13,8 @@
 const request = require('supertest');
 
 describe('Health Endpoints', () => {
-  const baseUrl = process.env.TEST_API_URL || 'http://localhost:3000';
+  const app = require('../server.js');
+  const baseUrl = process.env.TEST_API_URL || app;
   
   describe('GET /health', () => {
     it('should return basic health status', async () => {
@@ -138,7 +139,8 @@ describe('File Lifecycle', () => {
 });
 
 describe('Admin Endpoints', () => {
-  const baseUrl = process.env.TEST_API_URL || 'http://localhost:3000';
+  const app = require('../server.js');
+  const baseUrl = process.env.TEST_API_URL || app;
   
   describe('Without Auth', () => {
     it('should reject unauthenticated requests', async () => {
@@ -166,7 +168,8 @@ describe('Admin Endpoints', () => {
 });
 
 describe('Usage Endpoint', () => {
-  const baseUrl = process.env.TEST_API_URL || 'http://localhost:3000';
+  const app = require('../server.js');
+  const baseUrl = process.env.TEST_API_URL || app;
   
   describe('GET /api/usage', () => {
     it('should require authentication', async () => {
