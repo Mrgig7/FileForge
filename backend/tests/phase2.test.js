@@ -12,6 +12,13 @@
 
 const request = require('supertest');
 
+jest.mock('bullmq', () => ({
+  Queue: class {
+    constructor() {}
+    add() { return Promise.resolve({ id: 'mock-job-123' }); }
+  },
+  Worker: class {}
+}), { virtual: true });
 describe('Health Endpoints', () => {
   const baseUrl = process.env.TEST_API_URL || 'http://localhost:3000';
   
