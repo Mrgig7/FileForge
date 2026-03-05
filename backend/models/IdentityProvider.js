@@ -33,8 +33,9 @@ function encrypt(text) {
 }
 
 function decrypt(text) {
-  if (!text) return null;
+  if (!text) return text;
   const parts = text.split(':');
+  if (parts.length !== 2) return text; // Not encrypted or old format
   const iv = Buffer.from(parts.shift(), 'hex');
   const encrypted = Buffer.from(parts.join(':'), 'hex');
   const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);

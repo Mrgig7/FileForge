@@ -29,6 +29,28 @@ describe('SSO System', () => {
       const decrypted = IdentityProvider.decrypt(encrypted);
       expect(decrypted).toBe(secret);
     });
+
+    it('should return original text if falsy or not in encrypted format', () => {
+      expect(IdentityProvider.decrypt(null)).toBe(null);
+      expect(IdentityProvider.decrypt(undefined)).toBe(undefined);
+      expect(IdentityProvider.decrypt('')).toBe('');
+
+      // Not in encrypted format (no colon)
+      expect(IdentityProvider.decrypt('not-encrypted')).toBe('not-encrypted');
+
+      // More than 2 parts
+      expect(IdentityProvider.decrypt('part1:part2:part3')).toBe('part1:part2:part3');
+    });
+
+    it('should return null if falsy in encrypt', () => {
+      expect(IdentityProvider.encrypt(null)).toBe(null);
+      expect(IdentityProvider.encrypt(undefined)).toBe(null);
+      expect(IdentityProvider.encrypt('')).toBe(null);
+    });
+
+    it('should throw when deciphering fails with invalid format', () => {
+      expect(() => IdentityProvider.decrypt('invalid:format')).toThrow();
+    });
   });
   
   describe('POST /workspaces/:id/sso/config', () => {
