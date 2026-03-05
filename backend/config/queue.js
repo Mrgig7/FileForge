@@ -99,7 +99,7 @@ async function addJob(queueName, jobName, data, opts = {}) {
 async function addPostUploadJob(fileId, options = {}) {
   return addJob(QUEUE_NAMES.POST_UPLOAD, 'process-upload', {
     fileId: fileId.toString(),
-    idempotencyKey: `post-upload:${fileId}`,
+    idempotencyKey: `post-upload-${fileId}`, // BullMQ custom IDs cannot contain colons
     ...options
   });
 }
@@ -111,7 +111,7 @@ async function addPreviewJob(fileId, mimeType, options = {}) {
   return addJob(QUEUE_NAMES.PREVIEW, 'generate-preview', {
     fileId: fileId.toString(),
     mimeType,
-    idempotencyKey: `preview:${fileId}`,
+    idempotencyKey: `preview-${fileId}`, // BullMQ custom IDs cannot contain colons
     ...options
   });
 }
@@ -122,7 +122,7 @@ async function addPreviewJob(fileId, mimeType, options = {}) {
 async function addScanJob(fileId, options = {}) {
   return addJob(QUEUE_NAMES.SCAN, 'scan-file', {
     fileId: fileId.toString(),
-    idempotencyKey: `scan:${fileId}`,
+    idempotencyKey: `scan-${fileId}`, // BullMQ custom IDs cannot contain colons
     priority: options.priority || 1,  // Lower = higher priority
     ...options
   }, {

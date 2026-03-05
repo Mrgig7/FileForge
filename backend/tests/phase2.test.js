@@ -97,6 +97,9 @@ describe('Queue System', () => {
       // Only run if Redis is available
       try {
         const job = await addPostUploadJob('test-file-id-123');
+        // Disconnect bullmq to prevent open handles
+        const queues = require('../config/queue').getQueue('post-upload');
+        await queues.close();
         expect(job).toBeDefined();
         expect(job.id).toBeDefined();
       } catch (err) {

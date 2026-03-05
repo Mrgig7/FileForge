@@ -1,3 +1,11 @@
+jest.mock('rate-limiter-flexible', () => ({
+  RateLimiterRedis: class {
+    consume() { return Promise.resolve(); }
+  },
+  RateLimiterMemory: class {
+    consume() { return Promise.resolve(); }
+  }
+}), { virtual: true });
 /**
  * Phase 5-6 Tests
  * 

@@ -64,7 +64,7 @@ function getMasterKey(version = null) {
  * @returns {object|null} Encrypted payload { ciphertext, iv, authTag, keyVersion } or null if not configured
  */
 function encryptField(plaintext) {
-  if (plaintext === null || plaintext === undefined) {
+  if (!plaintext && plaintext !== "") {
     return null;
   }
   
@@ -113,7 +113,7 @@ function encryptField(plaintext) {
  * @throws {Error} If decryption fails or data has been tampered with
  */
 function decryptField(payload) {
-  if (!payload || !payload.ciphertext) {
+  if (!payload || (!payload.ciphertext && payload.ciphertext !== "")) {
     return null;
   }
   
