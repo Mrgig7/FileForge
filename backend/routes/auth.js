@@ -5,12 +5,21 @@ const { ensureGuest, ensureAuthenticated, ensureApiAuth } = require('../middlewa
 const jwt = require('jsonwebtoken');
 const path = require('path');
 
+// Helper function to sanitize returnTo URLs and prevent Open Redirects
+function sanitizeReturnTo(url) {
+    if (typeof url === 'string' && url.startsWith('/') && !url.startsWith('//')) {
+        return url;
+    }
+    return '/dashboard';
+}
+
+
 // @route   GET /auth/register
 // @desc    Render registration form
 // @access  Public (guest only)
 router.get('/register', ensureGuest, (req, res) => {
     // Get returnTo parameter or set default
-    const returnTo = req.query.returnTo || '/dashboard';
+    const returnTo = sanitizeReturnTo(req.query.returnTo);
 
     res.render('auth/register', {
         title: 'Register - FileForge',
@@ -88,7 +97,7 @@ router.post('/register', async (req, res) => {
 
         try {
             const { name, email, password, confirmPassword, returnTo } = req.body;
-            const redirectUrl = returnTo || '/dashboard';
+            const redirectUrl = sanitizeReturnTo(returnTo);
 
             // Validation
             let errors = [];
@@ -150,7 +159,7 @@ router.post('/register', async (req, res) => {
 router.get('/login', ensureGuest, (req, res) => {
     try {
         // Get returnTo parameter or set default
-        const returnTo = req.query.returnTo || '/dashboard';
+        const returnTo = sanitizeReturnTo(req.query.returnTo);
 
         res.render('auth/login', {
             title: 'Login - FileForge',
@@ -239,7 +248,7 @@ router.post('/login', (req, res, next) => {
         })(req, res, next);
     } else {
         // Handle web form login request
-        const returnTo = req.body.returnTo || '/dashboard';
+        const returnTo = sanitizeReturnTo(req.body.returnTo);
 
         passport.authenticate('local', {
             successRedirect: returnTo,
