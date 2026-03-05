@@ -55,8 +55,7 @@ const ShareLinkSchema = new mongoose.Schema({
   // Optional expiry time
   expiresAt: {
     type: Date,
-    default: null,
-    index: true
+    default: null
   },
   
   // Optional password protection (bcrypt hash)

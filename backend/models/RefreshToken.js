@@ -19,8 +19,7 @@ const RefreshTokenSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
-    index: true
+    required: true
   },
   
   // SHA-256 hash of the refresh token (never store raw token)
@@ -55,8 +54,7 @@ const RefreshTokenSchema = new mongoose.Schema({
   
   expiresAt: {
     type: Date,
-    required: true,
-    index: true
+    required: true
   },
   
   revokedAt: {

@@ -104,9 +104,18 @@ describe('Audit Log Hash Chain', () => {
     });
     
     it('should return valid for empty logs', async () => {
-      // Mock empty workspace
+      // Mock empty workspace find
+      const originalFind = AuditLog.find;
+      AuditLog.find = jest.fn().mockReturnValue({
+        sort: jest.fn().mockReturnValue({
+          limit: jest.fn().mockReturnValue({
+            lean: jest.fn().mockResolvedValue([])
+          })
+        })
+      });
       const result = await AuditLog.verifyChain('000000000000000000000000');
       expect(result.valid).toBe(true);
+      AuditLog.find = originalFind;
     });
   });
 });

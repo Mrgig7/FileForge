@@ -21,8 +21,7 @@ const sessionSchema = new Schema({
   userId: {
     type: Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
-    index: true
+    required: true
   },
   
   // Device association
@@ -70,7 +69,7 @@ const sessionSchema = new Schema({
 // Indexes
 sessionSchema.index({ userId: 1, revokedAt: 1 });
 sessionSchema.index({ createdAt: -1 });
-sessionSchema.index({ expiresAt: 1 });
+sessionSchema.;
 
 // Methods
 sessionSchema.methods.isActive = function() {

@@ -66,8 +66,7 @@ const invitationSchema = new Schema({
   // Lifecycle
   expiresAt: {
     type: Date,
-    required: true,
-    index: true
+    required: true
   },
   
   acceptedAt: { type: Date },

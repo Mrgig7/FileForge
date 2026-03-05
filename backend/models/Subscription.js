@@ -54,13 +54,11 @@ const subscriptionSchema = new Schema({
   // Owner (user or workspace)
   userId: {
     type: Schema.Types.ObjectId,
-    ref: 'User',
-    index: true
+    ref: 'User'
   },
   workspaceId: {
     type: Schema.Types.ObjectId,
-    ref: 'Workspace',
-    index: true
+    ref: 'Workspace'
   },
   
   // Plan info
