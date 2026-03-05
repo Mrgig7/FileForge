@@ -104,6 +104,13 @@ describe('Audit Log Hash Chain', () => {
     });
     
     it('should return valid for empty logs', async () => {
+      jest.spyOn(AuditLog, 'find').mockReturnValue({
+        sort: () => ({
+          limit: () => ({
+            lean: async () => []
+          })
+        })
+      });
       // Mock empty workspace
       const result = await AuditLog.verifyChain('000000000000000000000000');
       expect(result.valid).toBe(true);
