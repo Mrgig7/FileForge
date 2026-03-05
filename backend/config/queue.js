@@ -13,7 +13,7 @@
  * - Dead letter queue → failed jobs for investigation
  */
 
-const { Queue, Worker, QueueScheduler } = require('bullmq');
+const { Queue, Worker } = require('bullmq');
 
 // Redis connection config (from environment)
 const getRedisConnection = () => ({
