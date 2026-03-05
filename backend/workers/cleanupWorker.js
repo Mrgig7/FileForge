@@ -110,23 +110,46 @@ async function purgeAbandonedUploads(job) {
   
   let deletedCount = 0;
   let errorCount = 0;
-  
-  for (const file of abandonedFiles) {
-    try {
-      // Cleanup from Cloudinary
-      if (file.cloudinaryId) {
-        await cloudinary.uploader.destroy(file.cloudinaryId, {
-          resource_type: 'raw'
-        }).catch(() => {});  // Ignore if not found
+
+  if (abandonedFiles.length === 0) {
+    log.info({ deletedCount, errorCount }, 'Abandoned purge completed');
+    return { deletedCount, errorCount };
+  }
+
+  // Parallelize Cloudinary deletions
+  const deletionResults = await Promise.allSettled(
+    abandonedFiles.map(async (file) => {
+      try {
+        if (file.cloudinaryId) {
+          await cloudinary.uploader.destroy(file.cloudinaryId, {
+            resource_type: 'raw'
+          }).catch(() => {});  // Ignore if not found
+        }
+        return file._id;
+      } catch (err) {
+        throw { err, fileId: file._id };
       }
-      
-      // Hard delete
-      await File.findByIdAndDelete(file._id);
-      deletedCount++;
-      
-    } catch (err) {
-      log.error({ err, fileId: file._id }, 'Failed to purge abandoned upload');
+    })
+  );
+
+  const successfulIds = [];
+  
+  for (const result of deletionResults) {
+    if (result.status === 'fulfilled') {
+      successfulIds.push(result.value);
+    } else {
+      log.error({ err: result.reason.err, fileId: result.reason.fileId }, 'Failed to purge abandoned upload');
       errorCount++;
+    }
+  }
+
+  if (successfulIds.length > 0) {
+    try {
+      const dbResult = await File.deleteMany({ _id: { $in: successfulIds } });
+      deletedCount = dbResult.deletedCount || 0;
+    } catch (err) {
+      log.error({ err }, 'Failed to batch delete abandoned uploads from database');
+      errorCount += successfulIds.length;
     }
   }
   
