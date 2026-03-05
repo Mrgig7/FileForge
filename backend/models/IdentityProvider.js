@@ -33,14 +33,20 @@ function encrypt(text) {
 }
 
 function decrypt(text) {
-  if (!text) return null;
-  const parts = text.split(':');
-  const iv = Buffer.from(parts.shift(), 'hex');
-  const encrypted = Buffer.from(parts.join(':'), 'hex');
-  const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
-  let decrypted = decipher.update(encrypted);
-  decrypted = Buffer.concat([decrypted, decipher.final()]);
-  return decrypted.toString();
+  if (!text) return text;
+  const textParts = text.split(':');
+  if (textParts.length !== 2) return text; // Not encrypted or old format
+  try {
+    const iv = Buffer.from(textParts.shift(), 'hex');
+    const encryptedText = Buffer.from(textParts.join(':'), 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+    let decrypted = decipher.update(encryptedText);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+    return decrypted.toString();
+  } catch (error) {
+    // Return original text if decryption fails (e.g., bad format or invalid hex)
+    return text;
+  }
 }
 
 const identityProviderSchema = new Schema({
