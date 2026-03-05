@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { createP2PTransfer, TransferState } from '../services/p2pTransfer';
 
 /**
