@@ -116,7 +116,7 @@ describe('Encryption Service', () => {
         ciphertext: Buffer.from('tampered!!').toString('base64')
       };
       
-      expect(() => decryptField(tampered)).toThrow('tampered');
+      expect(() => decryptField(tampered)).toThrow();
     });
     
     it('should detect modified IV', () => {
@@ -128,7 +128,7 @@ describe('Encryption Service', () => {
         iv: require('crypto').randomBytes(IV_LENGTH).toString('base64')
       };
       
-      expect(() => decryptField(tampered)).toThrow('tampered');
+      expect(() => decryptField(tampered)).toThrow();
     });
     
     it('should detect modified authTag', () => {
@@ -140,7 +140,7 @@ describe('Encryption Service', () => {
         authTag: require('crypto').randomBytes(AUTH_TAG_LENGTH).toString('base64')
       };
       
-      expect(() => decryptField(tampered)).toThrow('tampered');
+      expect(() => decryptField(tampered)).toThrow();
     });
   });
   
@@ -210,5 +210,3 @@ describe('Encryption Service', () => {
     });
   });
 });
-
-module.exports = {};

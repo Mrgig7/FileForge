@@ -49,10 +49,17 @@ function generateAccessToken(user) {
  * Returns decoded payload or throws error
  */
 function verifyAccessToken(token) {
-  return jwt.verify(token, ACCESS_TOKEN_SECRET, {
-    issuer: 'fileforge',
-    audience: 'fileforge-api'
-  });
+  try {
+    return jwt.verify(token, ACCESS_TOKEN_SECRET, {
+      issuer: 'fileforge',
+      audience: 'fileforge-api'
+    });
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      throw new Error('Token expired');
+    }
+    throw new Error('Invalid token');
+  }
 }
 
 /**
