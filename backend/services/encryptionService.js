@@ -113,7 +113,7 @@ function encryptField(plaintext) {
  * @throws {Error} If decryption fails or data has been tampered with
  */
 function decryptField(payload) {
-  if (!payload || typeof payload.ciphertext !== 'string') {
+  if (!payload || !payload.ciphertext) {
     return null;
   }
   

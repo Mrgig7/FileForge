@@ -22,16 +22,11 @@ describe('tokenService.generateAccessToken', () => {
   });
 
   it('should generate an access token with correct payload', () => {
-    // The user issue shows the code SHOULD be testing:
-    // payload: { sub: user._id, email: user.email, role: user.role || 'USER', name: user.name }
-    // options: { expiresIn: ACCESS_TOKEN_EXPIRY }
-    // but the actual code in the codebase is different and has toString, type access, etc.
-    // However the issue instruction asks to test the snippet provided in the instructions
+    // The codebase version uses type: 'access' and stringifies _id.
     const user = {
       _id: { toString: () => '12345' },
       email: 'test@example.com',
-      role: 'ADMIN',
-      type: 'access'
+      role: 'ADMIN'
     };
 
     const token = tokenService.generateAccessToken(user);

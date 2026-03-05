@@ -27,6 +27,7 @@ const AuditLogSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Workspace',
     default: null,
+    index: true
   },
   
   // User who performed the action
@@ -34,6 +35,7 @@ const AuditLogSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     default: null,
+    index: true
   },
   
   // Target resource

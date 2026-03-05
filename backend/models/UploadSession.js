@@ -33,6 +33,7 @@ const uploadSessionSchema = new Schema({
     required: true,
     unique: true,
     default: () => uuidv4(),
+    index: true
   },
   
   // Owner

@@ -85,7 +85,7 @@ async function addJob(queueName, jobName, data, opts = {}) {
   // Add idempotency key if provided
   const jobOptions = { ...opts };
   if (data.idempotencyKey) {
-    jobOptions.jobId = data.idempotencyKey.replace(/:/g, '-');
+    jobOptions.jobId = data.idempotencyKey;
   }
   
   const job = await queue.add(jobName, data, jobOptions);
