@@ -94,6 +94,18 @@ describe('ChunkStore', () => {
   });
 });
 
+// Mock rate-limiter-flexible before requiring the middleware
+jest.mock('rate-limiter-flexible', () => {
+  return {
+    RateLimiterRedis: jest.fn().mockImplementation(() => ({
+      consume: jest.fn().mockResolvedValue(true)
+    })),
+    RateLimiterMemory: jest.fn().mockImplementation(() => ({
+      consume: jest.fn().mockResolvedValue(true)
+    }))
+  };
+}, { virtual: true });
+
 describe('Rate Limiting', () => {
   const rateLimiter = require('../middleware/rateLimitMiddleware');
   
