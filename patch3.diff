@@ -1,0 +1,35 @@
+--- backend/config/queue.js
++++ backend/config/queue.js
+@@ -100,7 +100,7 @@
+   return addJob(QUEUE_NAMES.POST_UPLOAD, 'process-upload', {
+     fileId: fileId.toString(),
+-    idempotencyKey: `post-upload:${fileId}`,
++    idempotencyKey: `post-upload-${fileId}`,
+     ...options
+   });
+ }
+
+ /**
+  * Add preview generation job
+  */
+ async function addPreviewJob(fileId, mimeType, options = {}) {
+   return addJob(QUEUE_NAMES.PREVIEW, 'generate-preview', {
+     fileId: fileId.toString(),
+     mimeType,
+-    idempotencyKey: `preview:${fileId}`,
++    idempotencyKey: `preview-${fileId}`,
+     ...options
+   });
+ }
+
+ /**
+  * Add malware scan job
+  */
+ async function addMalwareScanJob(fileId, options = {}) {
+   return addJob(QUEUE_NAMES.SCANNER, 'scan-malware', {
+     fileId: fileId.toString(),
+-    idempotencyKey: `scan:${fileId}`,
++    idempotencyKey: `scan-${fileId}`,
+     ...options
+   });
+ }
